@@ -6,7 +6,7 @@ id: vinyl_tile
 version: 0.1.0
 api: "0.14"
 icon: record-player
-maintainer: your-github-name
+maintainer: marco-steiner
 license: MIT
 stage: beta
 topics: [media]
@@ -25,8 +25,7 @@ tiles:
   - id: deck
     name: tile_name
     icon: record-player
-    # The whole 4x4 screen: nothing smaller, nothing larger.
-    sizes: { min: 4x4, max: 4x4 }
+    sizes: { min: 1x1, max: 4x4 }
     # Twelve LVGL objects (the record, the sleeve, two lines of words, four keys with their icons).
     memory: 1500
     # One place: the sleeve, which shows the player's own cover (its entity_picture).
