@@ -1,0 +1,34 @@
+# What tools/preview.py shows (docs/PREVIEW.md): a player that plays, with every key, and a radio with a long title
+# that has no volume, paused. The cover comes from the file below, never from the internet.
+tiles:
+  - tile: deck
+    name: Living room
+    entity: media_player.living_room
+    sizes: [4x4]
+  - tile: deck
+    name: Radio
+    entity: media_player.radio
+    sizes: [4x4]
+
+states:
+  media_player.living_room:
+    state: playing
+    attributes:
+      friendly_name: Living room
+      media_title: "Evening Drive"
+      media_artist: "Nova Coast"
+      entity_picture: /api/image/serve/abc123/512x512
+      supported_features: 1049549
+      is_volume_muted: false
+  media_player.radio:
+    state: paused
+    attributes:
+      friendly_name: Radio
+      media_title: "The Long Road Home Through the Valley of the Quiet Rivers"
+      media_artist: "Morning Radio"
+      entity_picture: /api/image/serve/abc123/512x512
+      supported_features: 16385
+      is_volume_muted: false
+
+pictures:
+  "/api/image/serve/abc123/512x512": preview/cover.png

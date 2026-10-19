@@ -1,0 +1,40 @@
+# Vinyl tile: the music that plays as a record in its sleeve, as a tile that fills the whole 4x4 screen (plugin API
+# 0.14). The same look as the Vinyl deck screensaver, but a tile of a media player: the cover as a record sleeve with
+# the record peeking out, the title and the artist, and keys for mute, volume down, play or pause and volume up.
+# docs/MANIFEST.md has every field.
+id: vinyl_tile
+version: 0.1.0
+api: "0.14"
+icon: record-player
+maintainer: your-github-name
+license: MIT
+stage: beta
+topics: [media]
+requires:
+  esphome: 2026.6.2
+boards: any
+flash_kb: 6
+
+permissions:
+  # The keys: play and pause and the mute go through wish(), which sends Home Assistant's own actions for them; the
+  # volume steps go as actions.
+  home_assistant_actions: [media_player.media_play_pause, media_player.volume_mute, media_player.volume_up,
+                           media_player.volume_down]
+
+tiles:
+  - id: deck
+    name: tile_name
+    icon: record-player
+    # The whole 4x4 screen: nothing smaller, nothing larger.
+    sizes: { min: 4x4, max: 4x4 }
+    # Twelve LVGL objects (the record, the sleeve, two lines of words, four keys with their icons).
+    memory: 1500
+    # One place: the sleeve, which shows the player's own cover (its entity_picture).
+    pictures: 1
+    # The player the tile belongs to; what it plays, its state, its features and whether it is muted.
+    domains: [media_player]
+    attributes: [media_title, media_artist, entity_picture, supported_features, is_volume_muted]
+    example: tile_example
+    preview: { title: "{media_title}", badge: "{media_artist}" }
+    options:
+      - { id: keys, kind: toggle, label: keys, hint: keys_hint, default: true }

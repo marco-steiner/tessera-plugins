@@ -1,0 +1,15 @@
+{
+  "_meta": { "name": "English" },
+  "screen": {
+    "choose": "Choose a player",
+    "nothing": "Nothing playing"
+  },
+  "app": {
+    "name": "Vinyl tile",
+    "summary": "The music that plays as a record in its sleeve, as a tile for the whole 4x4 screen, with keys.",
+    "tile_name": "Vinyl tile",
+    "tile_example": "The cover as a record sleeve, the title and the artist, with keys",
+    "keys": "Keys",
+    "keys_hint": "Mute, volume and play or pause on the tile. Turn it off for a tile that only shows the music."
+  }
+}
