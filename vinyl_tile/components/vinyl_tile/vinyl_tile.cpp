@@ -9,7 +9,8 @@ using tessera::Font;
 namespace ui = tessera::ui;
 
 // Home Assistant's MediaPlayerEntityFeature: the bits of `supported_features` that decide the keys.
-constexpr uint32_t PAUSE = 1, SEEK = 2, PREVIOUS = 16, NEXT = 32, TURN_ON = 128, TURN_OFF = 256, PLAY = 16384;
+constexpr uint32_t F_PAUSE = 1, F_SEEK = 2, F_PREVIOUS = 16, F_NEXT = 32,
+                   F_TURN_ON = 128, F_TURN_OFF = 256, F_PLAY = 16384;
 // Icons of Tessera's set (Material Design Icons).
 constexpr uint32_t ICON_PLAY = 0xF040A, ICON_PAUSE = 0xF03E4, ICON_PREVIOUS = 0xF04AE, ICON_NEXT = 0xF04AD,
                    ICON_POWER = 0xF0425, ICON_SPEAKER = 0xF04C3;
@@ -198,7 +199,7 @@ class DeckTile : public tessera::Tile {
       tessera::action("media_player.media_previous_track", entity_);
     } else if (key == NEXT) {
       tessera::action("media_player.media_next_track", entity_);
-    } else if (keys_on_ && (features_ & SEEK) && duration_ > 0 && p.x >= bar_x_ - ui::mm(3) &&
+    } else if (keys_on_ && (features_ & F_SEEK) && duration_ > 0 && p.x >= bar_x_ - ui::mm(3) &&
                p.x <= bar_x_ + bar_w_ + ui::mm(3) && p.y >= seek_y_ - ui::mm(6) && p.y <= seek_y_ + ui::mm(6)) {
       // A tap on the bar: the track goes to that place, and the bar shows it at once.
       const float frac = std::min(1.0f, std::max(0.0f, float(p.x - bar_x_) / float(bar_w_)));
@@ -247,8 +248,10 @@ class DeckTile : public tessera::Tile {
 
   // Which keys the player has and the face of each: only visibility, texts and colours change here.
   void paint_keys() {
-    const bool shown[KEYS] = {keys_on_ && (features_ & (TURN_ON | TURN_OFF)), keys_on_ && (features_ & PREVIOUS),
-                              keys_on_ && (features_ & (PAUSE | PLAY)), keys_on_ && (features_ & NEXT)};
+    const bool shown[KEYS] = {keys_on_ && (features_ & (F_TURN_ON | F_TURN_OFF)),
+                          keys_on_ && (features_ & F_PREVIOUS),
+                          keys_on_ && (features_ & (F_PAUSE | F_PLAY)),
+                          keys_on_ && (features_ & F_NEXT)};
     const uint32_t icons[KEYS] = {ICON_POWER, ICON_PREVIOUS, playing_ ? ICON_PAUSE : ICON_PLAY, ICON_NEXT};
     for (int i = 0; i < KEYS; ++i) {
       key_shown_[i] = shown[i];
