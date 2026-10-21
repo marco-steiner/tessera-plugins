@@ -6,3 +6,5 @@
   with plugin API 0.14.
 ## 0.1.1
 - First version test
+## 0.1.2
+- First version test
