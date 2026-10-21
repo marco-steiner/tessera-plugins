@@ -1,0 +1,15 @@
+{
+  "_meta": { "name": "Deutsch" },
+  "screen": {
+    "choose": "Wähle einen Player",
+    "nothing": "Nichts läuft"
+  },
+  "app": {
+    "name": "Vinyl-Kachel",
+    "summary": "Die Musik als Schallplatte in der Hülle, als Kachel für den ganzen 4x4-Screen, im Layout der Player-Karte.",
+    "tile_name": "Vinyl-Kachel",
+    "tile_example": "Das Cover als Plattenhülle, Titel, Fortschritt und Tasten",
+    "keys": "Tasten",
+    "keys_hint": "Power, zurück, Play oder Pause, weiter und ein Tipp auf den Fortschrittsbalken."
+  }
+}
