@@ -1,5 +1,7 @@
 {
-  "_meta": { "name": "Deutsch" },
+  "_meta": {
+    "name": "Deutsch"
+  },
   "screen": {},
   "app": {
     "name": "Glasuhr",
@@ -16,6 +18,11 @@
     "date": "Datum",
     "date_hint": "Der Tag über der Uhrzeit.",
     "seconds": "Blinkender Doppelpunkt",
-    "seconds_hint": "Die zwei Punkte zwischen Stunden und Minuten blinken jede Sekunde (nur bei nebeneinander)."
+    "seconds_hint": "Die zwei Punkte zwischen Stunden und Minuten blinken jede Sekunde (nur bei nebeneinander).",
+    "detail": "Detailgrad",
+    "detail_hint": "Voll schließt freie Enden mit hellem Rand, braucht aber am meisten Speicher. Leicht lässt diese Kappen weg. Minimal zeichnet nur die Füllung. Wird der Screen schwarz oder flackert er, nimm eine leichtere Stufe.",
+    "detail_light": "Leicht",
+    "detail_full": "Voll",
+    "detail_minimal": "Minimal"
   }
 }

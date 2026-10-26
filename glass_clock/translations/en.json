@@ -1,5 +1,7 @@
 {
-  "_meta": { "name": "English" },
+  "_meta": {
+    "name": "English"
+  },
   "screen": {},
   "app": {
     "name": "Glass clock",
@@ -16,6 +18,11 @@
     "date": "Date",
     "date_hint": "The day above the time.",
     "seconds": "Blinking colon",
-    "seconds_hint": "The two dots between the hours and the minutes blink every second (digits in a row only)."
+    "seconds_hint": "The two dots between the hours and the minutes blink every second (digits in a row only).",
+    "detail": "Detail",
+    "detail_hint": "Full closes free ends with a bright border but needs the most memory. Light skips those caps. Minimal draws the body only. If the screen goes black or flickers, take a lighter setting.",
+    "detail_light": "Light",
+    "detail_full": "Full",
+    "detail_minimal": "Minimal"
   }
 }

@@ -94,6 +94,10 @@ class GlassSaver : public tessera::Saver {
     const int dim = std::max(0, std::min(80, (int) (c.options["dim"] | 35)));
     const bool date = c.options["date"] | true;
     seconds_ = c.options["seconds"] | true;
+    // How many layers an arc is drawn from: 5 (body, both edges, the caps of free ends), 3 (no caps) or 1 (body only).
+    // Every layer is an LVGL object of its own, so fewer layers leave the screen more memory.
+    const char *detail = c.options["detail"] | "light";
+    layers_ = std::strcmp(detail, "full") == 0 ? 5 : (std::strcmp(detail, "minimal") == 0 ? 1 : 3);
     // The glass gets a little fainter at night, when the level is low and a face may go darker still.
     body_opa_ = c.night ? (lv_opa_t) 50 : (lv_opa_t) 77;
     rim_opa_ = c.night ? (lv_opa_t) 127 : (lv_opa_t) 179;
@@ -240,7 +244,7 @@ class GlassSaver : public tessera::Saver {
   void make_digit(lv_obj_t *parent, Digit &d) {
     for (auto &arc : d.arcs) {
       arc[0] = arc_layer(parent, body_opa_);
-      for (int i = 1; i < ARC_LAYERS; ++i) arc[i] = arc_layer(parent, rim_opa_);
+      for (int i = 1; i < layers_; ++i) arc[i] = arc_layer(parent, rim_opa_);
     }
     for (lv_obj_t *&bar : d.bars) {
       bar = glass_block(parent);
@@ -262,7 +266,8 @@ class GlassSaver : public tessera::Saver {
       }
     }
     for (int i = arcs; i < ARC_SLOTS; ++i)
-      for (lv_obj_t *layer : d.arcs[i]) lv_obj_add_flag(layer, LV_OBJ_FLAG_HIDDEN);
+      for (lv_obj_t *layer : d.arcs[i])
+        if (layer) lv_obj_add_flag(layer, LV_OBJ_FLAG_HIDDEN);
     for (int i = bars; i < BAR_SLOTS; ++i) lv_obj_add_flag(d.bars[i], LV_OBJ_FLAG_HIDDEN);
   }
 
@@ -285,7 +290,7 @@ class GlassSaver : public tessera::Saver {
       bool rounded, shown;
     };
     Layer look[ARC_LAYERS] = {};
-    look[0] = {cx, cy, outer, thick_, start, end, body_opa_, open_start && open_end, true};
+    look[0] = {cx, cy, outer, thick_, start, end, body_opa_, layers_ < 5 ? (open_start || open_end) : (open_start && open_end), true};
     look[1] = {cx, cy, outer, rim_, start, end, rim_opa_, false, true};
     look[2] = {cx, cy, inner + rim_, rim_, start, end, rim_opa_, false, true};
     // The caps: a half circle around the end's centre line point, on the side the stroke runs out to.
@@ -296,7 +301,9 @@ class GlassSaver : public tessera::Saver {
       const int from = at_start ? (angle + 180) % 360 : angle % 360, to = at_start ? angle % 360 : (angle + 180) % 360;
       look[slot] = {px, py, cap, fill ? cap : rim_, from, to, fill ? body_opa_ : rim_opa_, false, true};
     };
-    if (open_start && open_end) {
+    if (layers_ < 5) {
+      // no caps: the body's own round ends close a free end, without a border of their own
+    } else if (open_start && open_end) {
       cap_at(start, true, 3, false);
       cap_at(end, false, 4, false);
     } else if (open_start) {
@@ -306,7 +313,7 @@ class GlassSaver : public tessera::Saver {
       cap_at(end, false, 3, true);
       cap_at(end, false, 4, false);
     }
-    for (int i = 0; i < ARC_LAYERS; ++i) {
+    for (int i = 0; i < layers_; ++i) {
       lv_obj_t *a = layers[i];
       const Layer &l = look[i];
       if (!l.shown) {
@@ -353,7 +360,7 @@ class GlassSaver : public tessera::Saver {
     lv_obj_remove_flag(bar, LV_OBJ_FLAG_HIDDEN);
   }
 
-  int thick_ = 3, rim_ = 1;
+  int thick_ = 3, rim_ = 1, layers_ = 3;
   float unit_ = 50;
   bool seconds_ = true;
   lv_opa_t body_opa_ = LV_OPA_30, rim_opa_ = LV_OPA_70;

@@ -40,6 +40,15 @@ savers:
           - { value: auto, label: layout_auto }
           - { value: side, label: layout_side }
           - { value: stacked, label: layout_stacked }
+      - id: detail
+        kind: choice
+        label: detail
+        hint: detail_hint
+        default: light
+        choices:
+          - { value: light, label: detail_light }
+          - { value: full, label: detail_full }
+          - { value: minimal, label: detail_minimal }
       - { id: dim, kind: number, min: 0, max: 80, step: 5, unit: "%", default: 35, label: dim, hint: dim_hint }
       - { id: date, kind: toggle, default: true, label: date, hint: date_hint }
       - { id: seconds, kind: toggle, default: true, label: seconds, hint: seconds_hint }
