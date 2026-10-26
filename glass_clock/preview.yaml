@@ -1,0 +1,17 @@
+# What tools/preview.py shows (docs/PREVIEW.md, "Screensavers"): the clock over a picture of an image entity, once with
+# the layout chosen by the screen's shape and once stacked with the picture dimmed more. The picture comes from the
+# file below, never from the internet.
+states:
+  image.wallpaper:
+    state: "2026-10-25T10:00:00+00:00"
+    attributes: { friendly_name: Wallpaper }
+pictures:
+  "camera:image.wallpaper": preview/wallpaper.jpg
+savers:
+  - saver: glass
+    name: Wallpaper
+    entity: image.wallpaper
+  - saver: glass
+    name: Stacked and darker
+    entity: image.wallpaper
+    options: { layout: stacked, dim: 55, date: true, seconds: false }

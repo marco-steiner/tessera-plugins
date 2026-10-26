@@ -1,0 +1,45 @@
+# Glass clock: a screensaver of its own (plugin API 0.14 and later, docs/FIRMWARE_API.md "A screensaver"). The time in
+# tall, thin digits of frosted glass over a picture from an image entity of Home Assistant, the way the iPhone's lock
+# screen shows it. The digits are drawn from rounded strokes (arcs and bars) with a clear body and a bright rim, since
+# a plugin has no font of its own. docs/MANIFEST.md has every field.
+id: glass_clock
+version: 0.1.0
+api: "0.17"
+icon: clock-outline
+maintainer: glass-clock-author
+license: MIT
+stage: beta
+topics: [time, photos]
+requires:
+  esphome: 2026.6.2
+boards: any
+flash_kb: 8
+
+savers:
+  # A step of its own: the person picks an image entity (or a camera) for it in the Screensaver card, and puts the step
+  # first in the order to have it show before the other steps. It always has something to show once an entity is chosen.
+  - id: glass
+    name: saver_name
+    icon: clock-outline
+    step: own
+    # About 40 LVGL objects: four digits of up to nine parts each (arcs have three layers), the colon, the shade, the
+    # picture's place and the date. The arcs are heavier than a label.
+    memory: 9000
+    # One place: the picture of the chosen entity, under everything.
+    pictures: 1
+    domains: [image, camera]
+    when: always
+    example: saver_example
+    options:
+      - id: layout
+        kind: choice
+        label: layout
+        hint: layout_hint
+        default: auto
+        choices:
+          - { value: auto, label: layout_auto }
+          - { value: side, label: layout_side }
+          - { value: stacked, label: layout_stacked }
+      - { id: dim, kind: number, min: 0, max: 80, step: 5, unit: "%", default: 35, label: dim, hint: dim_hint }
+      - { id: date, kind: toggle, default: true, label: date, hint: date_hint }
+      - { id: seconds, kind: toggle, default: true, label: seconds, hint: seconds_hint }

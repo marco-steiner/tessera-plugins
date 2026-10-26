@@ -1,0 +1,21 @@
+{
+  "_meta": { "name": "Deutsch" },
+  "screen": {},
+  "app": {
+    "name": "Glasuhr",
+    "summary": "Eine Bildschirmschoner-Uhr mit Ziffern aus mattem Glas über einem Bild aus Home Assistant.",
+    "saver_name": "Glasuhr",
+    "saver_example": "14:05 in Glasziffern über deinem Bild, darüber Fr 9 Okt",
+    "layout": "Anordnung",
+    "layout_hint": "Automatisch stapelt Stunden über Minuten auf quadratischen oder hohen Displays und setzt die vier Ziffern auf breiten nebeneinander.",
+    "layout_auto": "Automatisch",
+    "layout_side": "Nebeneinander",
+    "layout_stacked": "Gestapelt",
+    "dim": "Bild abdunkeln",
+    "dim_hint": "Wie stark das Bild abgedunkelt wird, damit die Glasziffern gut lesbar bleiben.",
+    "date": "Datum",
+    "date_hint": "Der Tag über der Uhrzeit.",
+    "seconds": "Blinkender Doppelpunkt",
+    "seconds_hint": "Die zwei Punkte zwischen Stunden und Minuten blinken jede Sekunde (nur bei nebeneinander)."
+  }
+}

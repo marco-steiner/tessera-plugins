@@ -1,0 +1,21 @@
+{
+  "_meta": { "name": "English" },
+  "screen": {},
+  "app": {
+    "name": "Glass clock",
+    "summary": "A screensaver clock in frosted glass digits over a picture from Home Assistant.",
+    "saver_name": "Glass clock",
+    "saver_example": "14:05 in glass digits over your picture, Fri 9 Oct above them",
+    "layout": "Layout",
+    "layout_hint": "Automatic stacks the hours over the minutes on a square or tall screen and puts the four digits in a row on a wide one.",
+    "layout_auto": "Automatic",
+    "layout_side": "In a row",
+    "layout_stacked": "Stacked",
+    "dim": "Dim the picture",
+    "dim_hint": "How much darker the picture gets, so the glass digits stay easy to read.",
+    "date": "Date",
+    "date_hint": "The day above the time.",
+    "seconds": "Blinking colon",
+    "seconds_hint": "The two dots between the hours and the minutes blink every second (digits in a row only)."
+  }
+}
