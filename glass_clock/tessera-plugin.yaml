@@ -6,7 +6,7 @@ id: glass_clock
 version: 0.1.0
 api: "0.17"
 icon: clock-outline
-maintainer: marco-steiner
+maintainer: glass-clock-author
 license: MIT
 stage: beta
 topics: [time, photos]
@@ -22,9 +22,9 @@ savers:
     name: saver_name
     icon: clock-outline
     step: own
-    # About 40 LVGL objects: four digits of up to nine parts each (arcs have three layers), the colon, the shade, the
+    # About 60 LVGL objects: four digits of up to thirteen parts each (an arc has five layers: body, two edges, two caps), the colon, the shade, the
     # picture's place and the date. The arcs are heavier than a label.
-    memory: 9000
+    memory: 12000
     # One place: the picture of the chosen entity, under everything.
     pictures: 1
     domains: [image, camera]

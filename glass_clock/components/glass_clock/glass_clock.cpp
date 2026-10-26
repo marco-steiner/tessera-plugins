@@ -27,31 +27,47 @@ constexpr float LEFT = STROKE / 2, RIGHT = 1.0f - STROKE / 2, TOP = STROKE / 2, 
 constexpr float MID = 0.5f, UPPER = STROKE / 2 + RADIUS, LOWER = GLYPH_H - STROKE / 2 - RADIUS;
 
 // A bar runs from (a, b) to (c, d) along its centre line. An arc is the part of a circle around (a, b) from the angle c
-// to the angle d, clockwise, in degrees as LVGL counts them (0 east, 90 south). `joined`: its ends lie in other
-// strokes, so a bar has flat ends and no border across them, and an arc has flat ends.
+// to the angle d, clockwise, in degrees as LVGL counts them (0 east, 90 south).
+//
+// `open` says which ends of a stroke are free (not hidden inside another stroke): a free end is closed by a round cap
+// with its own bright border. An arc has OPEN_START (the end at the angle c) and OPEN_END (the end at the angle d); a
+// bar is a pill with a border all round when `open` is not 0, and has flat ends with a border on its two long sides
+// when it is 0 (its ends lie in other strokes).
 enum Kind : uint8_t { BAR, ARC };
+enum Open : uint8_t { CLOSED = 0, OPEN_START = 1, OPEN_END = 2, OPEN_BOTH = 3 };
 struct Seg {
   Kind kind;
   float a, b, c, d;
-  bool joined;
+  uint8_t open;
 };
 
-constexpr Seg G0[] = {{ARC, MID, UPPER, 180, 360, true}, {ARC, MID, LOWER, 0, 180, true},
-                      {BAR, LEFT, UPPER, LEFT, LOWER, true}, {BAR, RIGHT, UPPER, RIGHT, LOWER, true}};
-constexpr Seg G1[] = {{BAR, 0.68f, TOP, 0.68f, BOTTOM, false}, {BAR, 0.30f, TOP, 0.68f, TOP, false}};
-constexpr Seg G2[] = {{ARC, MID, UPPER, 180, 450, false}, {ARC, MID, LOWER, 90, 270, false},
-                      {BAR, LEFT, BOTTOM, RIGHT, BOTTOM, false}};
-constexpr Seg G3[] = {{ARC, MID, UPPER, 200, 450, false}, {ARC, MID, LOWER, 270, 520, false}};
-constexpr Seg G4[] = {{BAR, 0.75f, TOP, 0.75f, BOTTOM, false}, {BAR, LEFT, TOP, LEFT, 1.15f, false},
-                      {BAR, LEFT, 1.15f, RIGHT, 1.15f, false}};
-constexpr Seg G5[] = {{BAR, LEFT, TOP, LEFT, 1.0f, false}, {BAR, LEFT, TOP, RIGHT, TOP, false},
-                      {ARC, MID, LOWER, 215, 510, false}};
-constexpr Seg G6[] = {{ARC, MID, LOWER, 0, 360, true}, {BAR, LEFT, UPPER, LEFT, LOWER, true},
-                      {ARC, MID, UPPER, 180, 330, false}};
-constexpr Seg G7[] = {{BAR, LEFT, TOP, RIGHT, TOP, false}, {BAR, 0.70f, TOP, 0.70f, BOTTOM, false}};
-constexpr Seg G8[] = {{ARC, MID, UPPER, 0, 360, true}, {ARC, MID, LOWER, 0, 360, true}};
-constexpr Seg G9[] = {{ARC, MID, UPPER, 0, 360, true}, {BAR, RIGHT, UPPER, RIGHT, LOWER, true},
-                      {ARC, MID, LOWER, 0, 150, false}};
+constexpr Seg G0[] = {{ARC, MID, UPPER, 180, 360, CLOSED},
+                      {ARC, MID, LOWER, 0, 180, CLOSED},
+                      {BAR, LEFT, UPPER, LEFT, LOWER, CLOSED},
+                      {BAR, RIGHT, UPPER, RIGHT, LOWER, CLOSED}};
+constexpr Seg G1[] = {{BAR, 0.68f, TOP, 0.68f, BOTTOM, OPEN_BOTH},
+                      {BAR, 0.30f, TOP, 0.68f, TOP, OPEN_BOTH}};
+constexpr Seg G2[] = {{ARC, MID, UPPER-0.005f, 180, 450, OPEN_START},
+                      {ARC, MID, LOWER, 90, 270, CLOSED},
+                      {BAR, 0.50f, BOTTOM, RIGHT, BOTTOM, OPEN_BOTH}};
+constexpr Seg G3[] = {{ARC, MID, UPPER, 200, 450, OPEN_BOTH},
+                      {ARC, MID, LOWER, 270, 520, OPEN_BOTH}};
+constexpr Seg G4[] = {{BAR, 0.75f, TOP, 0.75f, BOTTOM, OPEN_BOTH},
+                      {BAR, LEFT, TOP, LEFT, 0.95f, OPEN_BOTH},
+                      {BAR, LEFT, 0.95f, RIGHT, 0.95f, OPEN_BOTH}};
+constexpr Seg G5[] = {{BAR, 0.15f, TOP, 0.15f, 1.1f, OPEN_BOTH},
+                      {BAR, 0.15f, TOP, RIGHT, TOP, OPEN_BOTH},
+                      {ARC, MID, LOWER, 215, 510, OPEN_BOTH}};
+constexpr Seg G6[] = {{ARC, MID, LOWER, 0, 360, CLOSED},
+                      {BAR, LEFT, UPPER, LEFT, LOWER, CLOSED},
+                      {ARC, MID, UPPER, 180, 330, OPEN_END}};
+constexpr Seg G7[] = {{BAR, LEFT, TOP, RIGHT, TOP, OPEN_BOTH},
+                      {BAR, 0.91f, TOP, 0.91f, BOTTOM, OPEN_BOTH}};
+constexpr Seg G8[] = {{ARC, MID, UPPER, 0, 360, CLOSED},
+                      {ARC, MID, LOWER, 0, 360, CLOSED}};
+constexpr Seg G9[] = {{ARC, MID, UPPER, 0, 360, CLOSED},
+                      {BAR, RIGHT, UPPER, RIGHT, LOWER, CLOSED},
+                      {ARC, MID, LOWER, 0, 150, OPEN_END}};
 
 struct Glyph {
   const Seg *segs;
@@ -59,10 +75,10 @@ struct Glyph {
 };
 constexpr Glyph GLYPHS[10] = {{G0, 4}, {G1, 2}, {G2, 3}, {G3, 2}, {G4, 3}, {G5, 3}, {G6, 3}, {G7, 2}, {G8, 2}, {G9, 3}};
 
-// What one digit slot holds: room for the most any digit needs (two arcs of three layers, three bars).
-constexpr int ARC_SLOTS = 2, BAR_SLOTS = 3, ARC_LAYERS = 3;
+// What one digit slot holds: room for the most any digit needs (two arcs of five layers, three bars).
+constexpr int ARC_SLOTS = 2, BAR_SLOTS = 3, ARC_LAYERS = 5;
 struct Digit {
-  lv_obj_t *arcs[ARC_SLOTS][ARC_LAYERS]{};  // the body, the rim on the outer edge, the rim on the inner edge
+  lv_obj_t *arcs[ARC_SLOTS][ARC_LAYERS]{};  // the body, the rim on each edge, and two layers for the caps of free ends
   lv_obj_t *bars[BAR_SLOTS]{};
   char shown = 0;    // '0' to '9', ' ' for none, 0 before the first time
   int x = 0, y = 0;  // top left, in the glass's pixels
@@ -79,8 +95,8 @@ class GlassSaver : public tessera::Saver {
     const bool date = c.options["date"] | true;
     seconds_ = c.options["seconds"] | true;
     // The glass gets a little fainter at night, when the level is low and a face may go darker still.
-    body_opa_ = c.night ? LV_OPA_20 : LV_OPA_30;
-    rim_opa_ = c.night ? LV_OPA_50 : LV_OPA_70;
+    body_opa_ = c.night ? (lv_opa_t) 50 : (lv_opa_t) 77;
+    rim_opa_ = c.night ? (lv_opa_t) 127 : (lv_opa_t) 179;
 
     // The picture of the chosen entity over the whole glass, and a shade over it, both under everything else. A board
     // that shows no pictures (the CYD) has black behind the glass.
@@ -224,8 +240,7 @@ class GlassSaver : public tessera::Saver {
   void make_digit(lv_obj_t *parent, Digit &d) {
     for (auto &arc : d.arcs) {
       arc[0] = arc_layer(parent, body_opa_);
-      arc[1] = arc_layer(parent, rim_opa_);
-      arc[2] = arc_layer(parent, rim_opa_);
+      for (int i = 1; i < ARC_LAYERS; ++i) arc[i] = arc_layer(parent, rim_opa_);
     }
     for (lv_obj_t *&bar : d.bars) {
       bar = glass_block(parent);
@@ -251,8 +266,11 @@ class GlassSaver : public tessera::Saver {
     for (int i = bars; i < BAR_SLOTS; ++i) lv_obj_add_flag(d.bars[i], LV_OBJ_FLAG_HIDDEN);
   }
 
-  // An arc of three layers: the body as wide as the stroke, and a thin bright arc along each edge of it. LVGL draws an
-  // arc inward from the edge of its object, so a layer's object is as large as the outer edge of what it draws.
+  // An arc: the body as wide as the stroke, a thin bright arc along each edge of it, and the caps of its free ends.
+  // LVGL draws an arc inward from the edge of its object, so a layer's object is as large as the outer edge of what it
+  // draws. A free end is closed by a half circle of the stroke's width: with both ends free the body's own round caps
+  // are the fill and the two caps only draw the border; with one end free the body has flat ends, and the cap is a
+  // filled half circle (an arc as wide as its radius) and its border.
   void place_arc(lv_obj_t *const layers[ARC_LAYERS], const Digit &d, const Seg &s) {
     const int cx = d.x + (int) std::lround(s.a * unit_), cy = d.y + (int) std::lround(s.b * unit_);
     const int r = (int) std::lround(RADIUS * unit_);
@@ -260,16 +278,47 @@ class GlassSaver : public tessera::Saver {
     const bool full = s.d - s.c >= 359;
     // LVGL reads the angles from 0 to 359; a whole circle is 0 to 359 with flat ends, and the 1 degree is not seen.
     const int start = full ? 0 : (int) s.c % 360, end = full ? 359 : (int) s.d % 360;
-    const struct {
-      int radius, width;
-    } look[ARC_LAYERS] = {{outer, thick_}, {outer, rim_}, {inner + rim_, rim_}};
+    const bool open_start = !full && (s.open & OPEN_START), open_end = !full && (s.open & OPEN_END);
+    struct Layer {
+      int x, y, radius, width, from, to;  // the centre, the radius of the object, the width, the angles
+      lv_opa_t opa;
+      bool rounded, shown;
+    };
+    Layer look[ARC_LAYERS] = {};
+    look[0] = {cx, cy, outer, thick_, start, end, body_opa_, open_start && open_end, true};
+    look[1] = {cx, cy, outer, rim_, start, end, rim_opa_, false, true};
+    look[2] = {cx, cy, inner + rim_, rim_, start, end, rim_opa_, false, true};
+    // The caps: a half circle around the end's centre line point, on the side the stroke runs out to.
+    const int cap = thick_ / 2;
+    auto cap_at = [&](int angle, bool at_start, int slot, bool fill) {
+      const float rad = angle * 3.14159265f / 180.0f;
+      const int px = cx + (int) std::lround(r * std::cos(rad)), py = cy + (int) std::lround(r * std::sin(rad));
+      const int from = at_start ? (angle + 180) % 360 : angle % 360, to = at_start ? angle % 360 : (angle + 180) % 360;
+      look[slot] = {px, py, cap, fill ? cap : rim_, from, to, fill ? body_opa_ : rim_opa_, false, true};
+    };
+    if (open_start && open_end) {
+      cap_at(start, true, 3, false);
+      cap_at(end, false, 4, false);
+    } else if (open_start) {
+      cap_at(start, true, 3, true);
+      cap_at(start, true, 4, false);
+    } else if (open_end) {
+      cap_at(end, false, 3, true);
+      cap_at(end, false, 4, false);
+    }
     for (int i = 0; i < ARC_LAYERS; ++i) {
       lv_obj_t *a = layers[i];
-      lv_obj_set_size(a, 2 * look[i].radius, 2 * look[i].radius);
-      lv_obj_set_pos(a, cx - look[i].radius, cy - look[i].radius);
-      lv_arc_set_bg_angles(a, start, end);
-      lv_obj_set_style_arc_width(a, look[i].width, LV_PART_MAIN);
-      lv_obj_set_style_arc_rounded(a, !s.joined && !full, LV_PART_MAIN);
+      const Layer &l = look[i];
+      if (!l.shown) {
+        lv_obj_add_flag(a, LV_OBJ_FLAG_HIDDEN);
+        continue;
+      }
+      lv_obj_set_size(a, 2 * l.radius, 2 * l.radius);
+      lv_obj_set_pos(a, l.x - l.radius, l.y - l.radius);
+      lv_arc_set_bg_angles(a, l.from, l.to);
+      lv_obj_set_style_arc_width(a, l.width, LV_PART_MAIN);
+      lv_obj_set_style_arc_opa(a, l.opa, LV_PART_MAIN);
+      lv_obj_set_style_arc_rounded(a, l.rounded, LV_PART_MAIN);
       lv_obj_remove_flag(a, LV_OBJ_FLAG_HIDDEN);
     }
   }
@@ -277,7 +326,8 @@ class GlassSaver : public tessera::Saver {
   // A bar: a pill along its centre line, or with flat ends and a border on its two long sides where it joins others.
   void place_bar(lv_obj_t *bar, const Digit &d, const Seg &s) {
     const bool vertical = std::fabs(s.a - s.c) < 0.001f;
-    const int cap = s.joined ? 0 : thick_ / 2;
+    const bool joined = s.open == CLOSED;
+    const int cap = joined ? 0 : thick_ / 2;
     int x0 = d.x + (int) std::lround(std::min(s.a, s.c) * unit_);
     int x1 = d.x + (int) std::lround(std::max(s.a, s.c) * unit_);
     int y0 = d.y + (int) std::lround(std::min(s.b, s.d) * unit_);
@@ -295,8 +345,8 @@ class GlassSaver : public tessera::Saver {
     }
     lv_obj_set_pos(bar, x0, y0);
     lv_obj_set_size(bar, x1 - x0, y1 - y0);
-    lv_obj_set_style_radius(bar, s.joined ? 0 : LV_RADIUS_CIRCLE, 0);
-    const lv_border_side_t sides = !s.joined ? LV_BORDER_SIDE_FULL
+    lv_obj_set_style_radius(bar, joined ? 0 : LV_RADIUS_CIRCLE, 0);
+    const lv_border_side_t sides = !joined ? LV_BORDER_SIDE_FULL
                                    : vertical ? (lv_border_side_t) (LV_BORDER_SIDE_LEFT | LV_BORDER_SIDE_RIGHT)
                                               : (lv_border_side_t) (LV_BORDER_SIDE_TOP | LV_BORDER_SIDE_BOTTOM);
     lv_obj_set_style_border_side(bar, sides, 0);
