@@ -6,7 +6,7 @@ id: glass_clock
 version: 0.1.0
 api: "0.17"
 icon: clock-outline
-maintainer: glass-clock-author
+maintainer: marco-steiner
 license: MIT
 stage: beta
 topics: [time, photos]
