@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstring>
 #include <string>
+#include "esphome/core/log.h"
 
 namespace esphome::glass_clock {
 
@@ -17,6 +18,8 @@ namespace ui = tessera::ui;
 // minute only moves and shows the strokes of the new digits (never makes or deletes one). The screen moves the whole
 // saver a millimetre every minute, so nothing stands still on the same pixels.
 namespace {
+
+static const char *const TAG = "glass_clock";
 
 // The shape of a digit, in units of its width: 1 wide, 1.83 tall, a stroke 0.17 thick. A bowl is a circle whose centre
 // line has the radius RADIUS; the two bowls of an 8 touch in the middle.
@@ -274,6 +277,9 @@ class GlassSaver : public tessera::Saver {
       lv_obj_set_size(overlay_, c.width, c.height);
       lv_obj_set_pos(overlay_, 0, 0);
       lv_obj_set_style_opa(overlay_, (lv_opa_t) (overlay_opa * 255 / 100), 0);
+      ESP_LOGI(TAG, "overlay picture made (%dx%d, opa %d%%)", (int) c.width, (int) c.height, overlay_opa);
+    } else {
+      ESP_LOGI(TAG, "no overlay: option %s, pictures() %s", overlay_on ? "on" : "off", ui::pictures() ? "yes" : "no");
     }
   }
 
@@ -281,11 +287,14 @@ class GlassSaver : public tessera::Saver {
   // by that address, exactly as it does for Tessera's own tiles.
   void on_state(JsonObjectConst data) override {
     // The second picture: the same entity with the suffix _overlay, by the same kind of address as the first.
+    ESP_LOGI(TAG, "on_state: overlay_ %s, place_ %s", overlay_ ? "set" : "null", place_ ? "set" : "null");
     if (overlay_) {
       const char *entity = data["entity"] | "";
       if (*entity) {
         const bool still = std::strncmp(entity, "image.", 6) == 0 || std::strncmp(entity, "camera.", 7) == 0;
-        ui::set_picture(overlay_, std::string(still ? "camera:" : "entity:") + entity + "_overlay", tessera::Fit::COVER);
+        const std::string addr = std::string(still ? "camera:" : "entity:") + entity + "_overlay";
+        ESP_LOGI(TAG, "overlay address %s", addr.c_str());
+        ui::set_picture(overlay_, addr, tessera::Fit::COVER);
       }
     }
     if (!place_) return;
