@@ -84,6 +84,45 @@ struct Digit {
   int x = 0, y = 0;  // top left, in the glass's pixels
 };
 
+// The shape of the smooth mode: much taller and thinner digits with oval bowls. A bowl is two arcs and two bars, so it can
+// be as long as it needs to be; the two bowls of the 8 touch in the middle. Same units as above (1 wide). EXT is how far
+// the straight sides of a bowl run, UP2 and LOW2 the centres of the arcs that close the upper and the lower bowl.
+namespace tall {
+constexpr float H = 3.0f, T = 0.13f, R = (1.0f - T) / 2;
+constexpr float LEFT = T / 2, RIGHT = 1.0f - T / 2, TOP = T / 2, BOTTOM = H - T / 2, MID = 0.5f;
+constexpr float UPPER = T / 2 + R, LOWER = H - T / 2 - R;
+constexpr float EXT = H / 2 + T / 2 - 1.0f;
+constexpr float UP2 = UPPER + EXT, LOW2 = LOWER - EXT;
+
+constexpr Seg G0[] = {{ARC, MID, UPPER, 180, 360, CLOSED}, {ARC, MID, LOWER, 0, 180, CLOSED},
+                      {BAR, LEFT, UPPER, LEFT, LOWER, CLOSED}, {BAR, RIGHT, UPPER, RIGHT, LOWER, CLOSED}};
+constexpr Seg G1[] = {{BAR, 0.72f, TOP, 0.72f, BOTTOM, OPEN_BOTH}, {BAR, 0.16f, 0.42f, 0.72f, TOP, OPEN_BOTH}};
+constexpr Seg G2[] = {{ARC, MID, UPPER, 180, 360, OPEN_START}, {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
+                      {ARC, MID, UP2, 0, 25, CLOSED}, {BAR, 0.894f, UP2 + 0.184f, LEFT, BOTTOM, CLOSED},
+                      {BAR, LEFT, BOTTOM, RIGHT, BOTTOM, OPEN_BOTH}};
+constexpr Seg G3[] = {{ARC, MID, UPPER, 200, 360, OPEN_START}, {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
+                      {ARC, MID, UP2, 0, 90, CLOSED}, {BAR, 0.30f, H / 2, MID, H / 2, OPEN_BOTH},
+                      {ARC, MID, LOW2, 270, 360, CLOSED}, {BAR, RIGHT, LOW2, RIGHT, LOWER, CLOSED},
+                      {ARC, MID, LOWER, 0, 160, OPEN_END}};
+constexpr Seg G4[] = {{BAR, 0.74f, TOP, 0.74f, BOTTOM, OPEN_BOTH}, {BAR, 0.74f, TOP, LEFT, 0.70f * H, OPEN_BOTH},
+                      {BAR, LEFT, 0.70f * H, RIGHT, 0.70f * H, OPEN_BOTH}};
+constexpr Seg G5[] = {{BAR, 0.144f, TOP, 0.144f, 1.685f, OPEN_BOTH}, {BAR, 0.144f, TOP, RIGHT, TOP, OPEN_BOTH},
+                      {ARC, MID, LOW2, 215, 360, CLOSED}, {BAR, RIGHT, LOW2, RIGHT, LOWER, CLOSED},
+                      {ARC, MID, LOWER, 0, 155, OPEN_END}};
+constexpr Seg G6[] = {{ARC, MID, LOW2, 180, 360, CLOSED}, {ARC, MID, LOWER, 0, 180, CLOSED},
+                      {BAR, LEFT, LOW2, LEFT, LOWER, CLOSED}, {BAR, RIGHT, LOW2, RIGHT, LOWER, CLOSED},
+                      {BAR, LEFT, UPPER, LEFT, LOW2, CLOSED}, {ARC, MID, UPPER, 180, 335, OPEN_END}};
+constexpr Seg G7[] = {{BAR, LEFT, TOP, RIGHT, TOP, OPEN_BOTH}, {BAR, RIGHT, TOP, 0.28f, BOTTOM, OPEN_BOTH}};
+constexpr Seg G8[] = {{ARC, MID, UPPER, 180, 360, CLOSED}, {ARC, MID, UP2, 0, 180, CLOSED},
+                      {BAR, LEFT, UPPER, LEFT, UP2, CLOSED}, {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
+                      {ARC, MID, LOW2, 180, 360, CLOSED}, {ARC, MID, LOWER, 0, 180, CLOSED},
+                      {BAR, LEFT, LOW2, LEFT, LOWER, CLOSED}, {BAR, RIGHT, LOW2, RIGHT, LOWER, CLOSED}};
+constexpr Seg G9[] = {{ARC, MID, UPPER, 180, 360, CLOSED}, {ARC, MID, UP2, 0, 180, CLOSED},
+                      {BAR, LEFT, UPPER, LEFT, UP2, CLOSED}, {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
+                      {BAR, RIGHT, UP2, RIGHT, LOWER, CLOSED}, {ARC, MID, LOWER, 0, 155, OPEN_END}};
+constexpr Glyph GLYPHS[10] = {{G0, 4}, {G1, 2}, {G2, 5}, {G3, 7}, {G4, 3}, {G5, 5}, {G6, 6}, {G7, 2}, {G8, 8}, {G9, 6}};
+}  // namespace tall
+
 // The pictures of the smooth mode (A8, one byte a pixel: how much of the ink shows), one per digit slot. They are kept in
 // PSRAM for as long as the firmware runs and reused by the next saver, so nothing that LVGL still holds is ever freed.
 constexpr int SLOTS = 4;
@@ -132,55 +171,69 @@ class GlassSaver : public tessera::Saver {
     lv_obj_set_size(shade_, c.width, c.height);
     lv_obj_set_pos(shade_, 0, 0);
 
-    // The layout: four digits in a row on a wide glass, two rows of two on a square or tall one.
-    const bool stacked = std::strcmp(layout, "stacked") == 0 ||
-                         (std::strcmp(layout, "side") != 0 && c.width * 100 < c.height * 135);
+    // The layout: four digits in a row, or two rows of two. The smooth mode has its own, much taller shape (the table
+    // in `tall`); the strokes keep the first. `arrange` fixes the metrics, the size and the places of the digits; with
+    // `auto` the arrangement that makes the digits larger wins.
     constexpr float IN = 0.22f, COLON = 0.56f, ROWS = 0.30f;
     const int date_h = date ? ui::line_height(Font::TITLE) : 0;
     const int date_gap = date ? ui::px(10) : 0;
-    if (stacked) {
-      unit_ = std::min(c.width * 0.84f / (2 + IN), (c.height - date_h - date_gap) * 0.86f / (2 * GLYPH_H + ROWS));
-    } else {
-      unit_ = std::min(c.width * 0.92f / (4 + 2 * IN + COLON), (c.height - date_h - date_gap) * 0.62f / GLYPH_H);
-    }
-    thick_ = std::max(3, (int) std::lround(STROKE * unit_));
-    rim_ = std::max(1, (int) std::lround(0.022f * unit_));
-    const int unit = (int) std::lround(unit_);
-    const int digits_h = (int) std::lround((stacked ? 2 * GLYPH_H + ROWS : GLYPH_H) * unit_);
-    const int top = (c.height - date_h - date_gap - digits_h) / 2 + date_h + date_gap;
+    bool stacked = false;
+    int top = 0;
+    auto arrange = [&](bool smooth) {
+      stroke_ = smooth ? tall::T : STROKE;
+      glyph_h_ = smooth ? tall::H : GLYPH_H;
+      radius_ = (1.0f - stroke_) / 2;
+      glyphs_ = smooth ? tall::GLYPHS : GLYPHS;
+      const float room = (float) (c.height - date_h - date_gap);
+      const float side = std::min(c.width * 0.92f / (4 + 2 * IN + COLON), room * 0.62f / glyph_h_);
+      const float stack = std::min(c.width * 0.84f / (2 + IN), room * 0.86f / (2 * glyph_h_ + ROWS));
+      stacked = std::strcmp(layout, "stacked") == 0 || (std::strcmp(layout, "side") != 0 && stack > side);
+      unit_ = stacked ? stack : side;
+      thick_ = std::max(3, (int) std::lround(stroke_ * unit_));
+      rim_ = std::max(1, (int) std::lround(0.022f * unit_));
+      const int digits_h = (int) std::lround((stacked ? 2 * glyph_h_ + ROWS : glyph_h_) * unit_);
+      top = (c.height - date_h - date_gap - digits_h) / 2 + date_h + date_gap;
+      if (stacked) {
+        const int x0 = (c.width - (int) std::lround((2 + IN) * unit_)) / 2;
+        const int step = (int) std::lround((1 + IN) * unit_);
+        const int row = (int) std::lround((glyph_h_ + ROWS) * unit_);
+        digits_[0].x = digits_[2].x = x0;
+        digits_[1].x = digits_[3].x = x0 + step;
+        digits_[0].y = digits_[1].y = top;
+        digits_[2].y = digits_[3].y = top + row;
+      } else {
+        const int x0 = (c.width - (int) std::lround((4 + 2 * IN + COLON) * unit_)) / 2;
+        const int in = (int) std::lround((1 + IN) * unit_), colon = (int) std::lround((1 + COLON) * unit_);
+        digits_[0].x = x0;
+        digits_[1].x = x0 + in;
+        digits_[2].x = x0 + in + colon;
+        digits_[3].x = x0 + 2 * in + colon;
+        for (Digit &d : digits_) d.y = top;
+      }
+    };
+    arrange(want_raster);
+    raster_ = want_raster && reserve_rasters();
+    if (want_raster && !raster_) arrange(false);  // no room for the pictures: the strokes, with their own shape
+
     if (date) {
       date_ = ui::label(c.parent, Font::TITLE, theme::INK_SOFT);
       lv_obj_set_width(date_, c.width);
       lv_obj_set_style_text_align(date_, LV_TEXT_ALIGN_CENTER, 0);
       lv_obj_set_pos(date_, 0, top - date_gap - date_h);
     }
-    if (stacked) {
-      const int x0 = (c.width - (int) std::lround((2 + IN) * unit_)) / 2;
-      const int step = (int) std::lround((1 + IN) * unit_);
-      const int row = (int) std::lround((GLYPH_H + ROWS) * unit_);
-      digits_[0].x = digits_[2].x = x0;
-      digits_[1].x = digits_[3].x = x0 + step;
-      digits_[0].y = digits_[1].y = top;
-      digits_[2].y = digits_[3].y = top + row;
-    } else {
-      const int x0 = (c.width - (int) std::lround((4 + 2 * IN + COLON) * unit_)) / 2;
-      const int in = (int) std::lround((1 + IN) * unit_), colon = (int) std::lround((1 + COLON) * unit_);
-      digits_[0].x = x0;
-      digits_[1].x = x0 + in;
-      digits_[2].x = x0 + in + colon;
-      digits_[3].x = x0 + 2 * in + colon;
-      for (Digit &d : digits_) d.y = top;
+    if (!stacked) {
       // The colon: two glass dots between the pairs, at a third and two thirds of the digits' height.
       const int dot = std::max(4, (int) std::lround(0.16f * unit_));
-      const int cx = digits_[1].x + unit + (int) std::lround(COLON * unit_ / 2);
+      const int cx = digits_[1].x + (int) std::lround(unit_) + (int) std::lround(COLON * unit_ / 2);
       for (int i = 0; i < 2; ++i) {
         dots_[i] = glass_block(c.parent);
         lv_obj_set_size(dots_[i], dot, dot);
-        lv_obj_set_pos(dots_[i], cx - dot / 2, top + (int) std::lround((i == 0 ? 0.62f : 1.21f) * unit_) - dot / 2);
+        lv_obj_set_pos(dots_[i], cx - dot / 2,
+                       top + (int) std::lround((i == 0 ? 0.34f : 0.66f) * glyph_h_ * unit_) - dot / 2);
       }
     }
-    raster_ = want_raster && make_rasters(c.parent);  // without room for the pictures: the strokes
-    if (!raster_)
+    if (raster_) create_images(c.parent);
+    else
       for (Digit &d : digits_) make_digit(c.parent, d);
   }
 
@@ -278,11 +331,10 @@ class GlassSaver : public tessera::Saver {
     else paint_digit(digits_[slot], ch);
   }
 
-  // One picture and one lv_image for each digit slot. False when the memory for a picture is not there.
-  bool make_rasters(lv_obj_t *parent) {
+  // Room for the pictures of the digit slots, in PSRAM. False when it is not there.
+  bool reserve_rasters() {
     RasterPool &pool = raster_pool();
-    const int w = (int) std::lround(unit_) + 2 * PAD, h = (int) std::lround(GLYPH_H * unit_) + 2 * PAD;
-    const size_t bytes = (size_t) w * h;
+    const size_t bytes = (size_t) picture_w() * picture_h();
     for (int i = 0; i < SLOTS; ++i) {
       if (pool.capacity[i] >= bytes) continue;
       void *p = pool.pixels[i] ? roomy::reallocate(pool.pixels[i], bytes) : roomy::allocate(bytes);
@@ -290,6 +342,16 @@ class GlassSaver : public tessera::Saver {
       pool.pixels[i] = (uint8_t *) p;
       pool.capacity[i] = bytes;
     }
+    return true;
+  }
+  int picture_w() const { return (int) std::lround(unit_) + 2 * PAD; }
+  int picture_h() const { return (int) std::lround(glyph_h_ * unit_) + 2 * PAD; }
+
+  // One lv_image for each digit slot, over the pictures reserved above.
+  void create_images(lv_obj_t *parent) {
+    RasterPool &pool = raster_pool();
+    const int w = picture_w(), h = picture_h();
+    const size_t bytes = (size_t) w * h;
     for (int i = 0; i < SLOTS; ++i) {
       std::memset(pool.pixels[i], 0, bytes);
       lv_image_dsc_t &dsc = pool.picture[i];
@@ -310,7 +372,6 @@ class GlassSaver : public tessera::Saver {
       lv_obj_set_pos(img, digits_[i].x - PAD, digits_[i].y - PAD);
       images_[i] = img;
     }
-    return true;
   }
 
   // Draw a digit into its picture. Every pixel gets its distance to the nearest centre line of the digit's strokes (a
@@ -335,8 +396,8 @@ class GlassSaver : public tessera::Saver {
       constexpr int MAX_PRIMS = 8;
       Prim prims[MAX_PRIMS];
       int n = 0;
-      const Glyph &g = GLYPHS[ch - '0'];
-      const float r = RADIUS * unit_;
+      const Glyph &g = glyphs_[ch - '0'];
+      const float r = radius_ * unit_;
       for (int i = 0; i < g.count && n < MAX_PRIMS; ++i) {
         const Seg &s = g.segs[i];
         Prim &q = prims[n++];
@@ -360,16 +421,16 @@ class GlassSaver : public tessera::Saver {
           q.ey1 = q.b + r * std::sin(a1);
         }
       }
-      const float half = STROKE * unit_ / 2;
+      const float half = stroke_ * unit_ / 2;
       const float limit = half + 1.0f;
       const float body = body_opa_ / 255.0f, rim_f = rim_opa_ / 255.0f;
       const float edge = 1.0f - (1.0f - body) * (1.0f - rim_f);  // body and rim on one another
       const float soft = std::max(1.0f, rim_ * 1.8f);             // how far the bright edge reaches inwards
-      const float tall = GLYPH_H * unit_;
+      const float tall_px = glyph_h_ * unit_;
       for (int y = 0; y < h; ++y) {
         const float py = y + 0.5f;
         // The body is a little brighter at the top than at the bottom, as light falls on glass.
-        const float lit = std::min(1.0f, std::max(0.0f, (py - PAD) / tall));
+        const float lit = std::min(1.0f, std::max(0.0f, (py - PAD) / tall_px));
         const float body_y = std::min(1.0f, body * (1.25f - 0.45f * lit));
         for (int x = 0; x < w; ++x) {
           const float pxf = x + 0.5f;
@@ -524,7 +585,8 @@ class GlassSaver : public tessera::Saver {
   }
 
   int thick_ = 3, rim_ = 1, layers_ = 3;
-  float unit_ = 50;
+  float unit_ = 50, stroke_ = STROKE, glyph_h_ = GLYPH_H, radius_ = RADIUS;
+  const Glyph *glyphs_ = GLYPHS;
   bool seconds_ = true, raster_ = false;
   lv_opa_t body_opa_ = LV_OPA_30, rim_opa_ = LV_OPA_70;
   uint32_t minute_ = 0;
