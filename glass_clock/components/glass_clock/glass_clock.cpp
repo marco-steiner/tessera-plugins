@@ -142,6 +142,7 @@ constexpr Seg G9[] = {{ARC, MID, UPPER, 180, 360, CLOSED},
                       {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
                       {BAR, RIGHT, UP2, RIGHT, LOWER, CLOSED},
                       {ARC, MID, LOWER, 0, 155, OPEN_END}};
+constexpr Glyph GLYPHS[10] = {{G0, 4}, {G1, 2}, {G2, 3}, {G3, 2}, {G4, 3}, {G5, 3}, {G6, 3}, {G7, 2}, {G8, 2}, {G9, 3}};
 }  // namespace tall
 
 // The pictures of the smooth mode (A8, one byte a pixel: how much of the ink shows), one per digit slot. They are kept in
