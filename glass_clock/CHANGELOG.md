@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.1.0
+- New options Overlay picture and Overlay opacity: the picture of the step's entity with the suffix _overlay is shown over the clock.
 - The smooth mode has its own, much taller and thinner digits with oval bowls (the 9 and 6 like the 0); Strokes keeps the
   first shape. Auto layout picks the arrangement that makes the digits larger.
 - New option Drawing: Smooth (default) draws each digit as one soft A8 picture with a bright edge all round, a handful of

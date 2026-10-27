@@ -170,8 +170,9 @@ class GlassSaver : public tessera::Saver {
     // -100 = Block ganz oben, 0 = mittig, +100 = ganz unten
     const int offset = std::max(-100, std::min(100, (int) (c.options["offset"] | 0)));
     const bool date = c.options["date"] | true;
-    // The second picture, over the clock: the id of an image entity (or a camera), and how opaque it is as a whole.
-    overlay_entity_ = c.options["overlay"] | "";
+    // The second picture, over the clock: the step's entity with the suffix _overlay (image.clock -> image.clock_overlay),
+    // and how opaque it is as a whole.
+    const bool overlay_on = c.options["overlay"] | false;
     const int overlay_opa = std::max(10, std::min(100, (int) (c.options["overlay_opa"] | 100)));
     seconds_ = c.options["seconds"] | true;
     // How many layers an arc is drawn from: 5 (body, both edges, the caps of free ends), 3 (no caps) or 1 (body only).
@@ -267,7 +268,7 @@ class GlassSaver : public tessera::Saver {
 
     // The overlay is made last, so it lies over the digits. A PNG keeps its own transparency; `overlay_opa` makes the
     // whole picture fainter on top of that.
-    if (ui::pictures() && !overlay_entity_.empty()) {
+    if (ui::pictures() && overlay_on) {
       overlay_ = ui::picture(c.parent, tessera::Placeholder::NONE);
       lv_obj_remove_flag(overlay_, LV_OBJ_FLAG_CLICKABLE);
       lv_obj_set_size(overlay_, c.width, c.height);
@@ -279,11 +280,13 @@ class GlassSaver : public tessera::Saver {
   // The step's data: its entity's id, `entity`, which the picture's address is made of. A picture comes from the app,
   // by that address, exactly as it does for Tessera's own tiles.
   void on_state(JsonObjectConst data) override {
-    // The second picture, by the same kind of address as the first.
-    if (overlay_ && !overlay_entity_.empty()) {
-      const char *ov = overlay_entity_.c_str();
-      const bool still = std::strncmp(ov, "image.", 6) == 0 || std::strncmp(ov, "camera.", 7) == 0;
-      ui::set_picture(overlay_, std::string(still ? "camera:" : "entity:") + overlay_entity_, tessera::Fit::COVER);
+    // The second picture: the same entity with the suffix _overlay, by the same kind of address as the first.
+    if (overlay_) {
+      const char *entity = data["entity"] | "";
+      if (*entity) {
+        const bool still = std::strncmp(entity, "image.", 6) == 0 || std::strncmp(entity, "camera.", 7) == 0;
+        ui::set_picture(overlay_, std::string(still ? "camera:" : "entity:") + entity + "_overlay", tessera::Fit::COVER);
+      }
     }
     if (!place_) return;
     const char *entity = data["entity"] | "";
@@ -636,7 +639,6 @@ class GlassSaver : public tessera::Saver {
   lv_opa_t body_opa_ = LV_OPA_30, rim_opa_ = LV_OPA_70;
   uint32_t minute_ = 0;
   Digit digits_[4];
-  std::string overlay_entity_;
   lv_obj_t *overlay_{}, *place_{}, *shade_{}, *date_{}, *dots_[2]{}, *images_[SLOTS]{};
 };
 

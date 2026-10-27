@@ -31,7 +31,7 @@
     "offset": "Position",
     "offset_hint": "Moves the date and time together up (negative) or down (positive).",
     "overlay": "Overlay picture",
-    "overlay_hint": "Entity id of an image or camera (e.g. image.overlay) shown over the clock. A PNG keeps its transparency. Leave empty for no overlay.",
+    "overlay_hint": "Shows the picture of the entity with the suffix _overlay over the clock (image.clock becomes image.clock_overlay). A PNG keeps its transparency.",
     "overlay_opa": "Overlay opacity",
     "overlay_opa_hint": "How visible the overlay is as a whole, on top of the PNG's own transparency."
   }

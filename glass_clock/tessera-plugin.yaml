@@ -62,7 +62,7 @@ savers:
           - { value: minimal, label: detail_minimal }
       - { id: dim, kind: number, min: 0, max: 80, step: 5, unit: "%", default: 35, label: dim, hint: dim_hint }
       - { id: offset, kind: number, min: -100, max: 100, step: 5, unit: "%", default: 0, label: offset, hint: offset_hint }
-      - { id: overlay, kind: text, default: "", label: overlay, hint: overlay_hint }
+      - { id: overlay, kind: toggle, default: false, label: overlay, hint: overlay_hint }
       - { id: overlay_opa, kind: number, min: 10, max: 100, step: 5, unit: "%", default: 100, label: overlay_opa, hint: overlay_opa_hint }
       - { id: date, kind: toggle, default: true, label: date, hint: date_hint }
       - { id: seconds, kind: toggle, default: true, label: seconds, hint: seconds_hint }
