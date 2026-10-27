@@ -29,6 +29,10 @@
     "mode_raster": "Smooth",
     "mode_strokes": "Strokes",
     "offset": "Position",
-    "offset_hint": "Position of date and time"
+    "offset_hint": "Moves the date and time together up (negative) or down (positive).",
+    "overlay": "Overlay picture",
+    "overlay_hint": "Entity id of an image or camera (e.g. image.overlay) shown over the clock. A PNG keeps its transparency. Leave empty for no overlay.",
+    "overlay_opa": "Overlay opacity",
+    "overlay_opa_hint": "How visible the overlay is as a whole, on top of the PNG's own transparency."
   }
 }
