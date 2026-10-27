@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0
+## 0.1.1
 - New options Overlay address and Overlay opacity: a PNG from a web address (the host is named in permissions.network) lies over the clock.
 - The smooth mode has its own, much taller and thinner digits with oval bowls (the 9 and 6 like the 0); Strokes keeps the
   first shape. Auto layout picks the arrangement that makes the digits larger.
