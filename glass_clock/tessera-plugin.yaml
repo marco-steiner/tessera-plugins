@@ -18,6 +18,14 @@ requires:
 boards: any
 flash_kb: 8
 
+# The overlay picture is fetched from the person's own Home Assistant domain (its www folder, served under /local/).
+# Replace the host with your domain (no address, no port, nothing on the home network), and the privacy link with a page
+# that says what the host sees (the README's Privacy section is fine).
+permissions:
+  network: [https://smarthomebude.eu/]
+attributes: [cloud]
+privacy: https://example.org/glass_clock#privacy
+
 savers:
   # A step of its own: the person picks an image entity (or a camera) for it in the Screensaver card, and puts the step
   # first in the order to have it show before the other steps. It always has something to show once an entity is chosen.
@@ -28,7 +36,7 @@ savers:
     # About 60 LVGL objects: four digits of up to thirteen parts each (an arc has five layers: body, two edges, two caps), the colon, the shade, the
     # picture's place and the date. The arcs are heavier than a label.
     memory: 14000
-    # Two places: the picture of the chosen entity under everything, and the overlay over the clock.
+    # Two places: the picture of the chosen entity under everything, and the overlay over the clock (from the host in permissions.network).
     pictures: 2
     domains: [image, camera]
     when: always
@@ -62,7 +70,7 @@ savers:
           - { value: minimal, label: detail_minimal }
       - { id: dim, kind: number, min: 0, max: 80, step: 5, unit: "%", default: 35, label: dim, hint: dim_hint }
       - { id: offset, kind: number, min: -100, max: 100, step: 5, unit: "%", default: 0, label: offset, hint: offset_hint }
-      - { id: overlay, kind: toggle, default: false, label: overlay, hint: overlay_hint }
+      - { id: overlay_url, kind: text, default: "", label: overlay_url, hint: overlay_url_hint }
       - { id: overlay_opa, kind: number, min: 10, max: 100, step: 5, unit: "%", default: 100, label: overlay_opa, hint: overlay_opa_hint }
       - { id: date, kind: toggle, default: true, label: date, hint: date_hint }
       - { id: seconds, kind: toggle, default: true, label: seconds, hint: seconds_hint }

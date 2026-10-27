@@ -173,9 +173,10 @@ class GlassSaver : public tessera::Saver {
     // -100 = Block ganz oben, 0 = mittig, +100 = ganz unten
     const int offset = std::max(-100, std::min(100, (int) (c.options["offset"] | 0)));
     const bool date = c.options["date"] | true;
-    // The second picture, over the clock: the step's entity with the suffix _overlay (image.clock -> image.clock_overlay),
-    // and how opaque it is as a whole.
-    const bool overlay_on = c.options["overlay"] | false;
+    // The second picture, over the clock: the web address of a PNG on the host named in the manifest's
+    // permissions.network (Home Assistant's www folder: https://<domain>/local/<file>.png), and how opaque it is as a whole.
+    overlay_url_ = c.options["overlay_url"] | "";
+    const bool overlay_on = !overlay_url_.empty();
     const int overlay_opa = std::max(10, std::min(100, (int) (c.options["overlay_opa"] | 100)));
     seconds_ = c.options["seconds"] | true;
     // How many layers an arc is drawn from: 5 (body, both edges, the caps of free ends), 3 (no caps) or 1 (body only).
@@ -279,23 +280,18 @@ class GlassSaver : public tessera::Saver {
       lv_obj_set_style_opa(overlay_, (lv_opa_t) (overlay_opa * 255 / 100), 0);
       ESP_LOGI(TAG, "overlay picture made (%dx%d, opa %d%%)", (int) c.width, (int) c.height, overlay_opa);
     } else {
-      ESP_LOGI(TAG, "no overlay: option %s, pictures() %s", overlay_on ? "on" : "off", ui::pictures() ? "yes" : "no");
+      ESP_LOGI(TAG, "no overlay: address %s, pictures() %s", overlay_on ? "set" : "empty", ui::pictures() ? "yes" : "no");
     }
   }
 
   // The step's data: its entity's id, `entity`, which the picture's address is made of. A picture comes from the app,
   // by that address, exactly as it does for Tessera's own tiles.
   void on_state(JsonObjectConst data) override {
-    // The second picture: the same entity with the suffix _overlay, by the same kind of address as the first.
+    // The second picture: the web address from the option, set the same way as the first picture's.
     ESP_LOGI(TAG, "on_state: overlay_ %s, place_ %s", overlay_ ? "set" : "null", place_ ? "set" : "null");
-    if (overlay_) {
-      const char *entity = data["entity"] | "";
-      if (*entity) {
-        const bool still = std::strncmp(entity, "image.", 6) == 0 || std::strncmp(entity, "camera.", 7) == 0;
-        const std::string addr = std::string(still ? "camera:" : "entity:") + entity + "_overlay";
-        ESP_LOGI(TAG, "overlay address %s", addr.c_str());
-        ui::set_picture(overlay_, addr, tessera::Fit::COVER);
-      }
+    if (overlay_ && !overlay_url_.empty()) {
+      ESP_LOGI(TAG, "overlay address %s", overlay_url_.c_str());
+      ui::set_picture(overlay_, overlay_url_, tessera::Fit::COVER);
     }
     if (!place_) return;
     const char *entity = data["entity"] | "";
@@ -648,6 +644,7 @@ class GlassSaver : public tessera::Saver {
   lv_opa_t body_opa_ = LV_OPA_30, rim_opa_ = LV_OPA_70;
   uint32_t minute_ = 0;
   Digit digits_[4];
+  std::string overlay_url_;
   lv_obj_t *overlay_{}, *place_{}, *shade_{}, *date_{}, *dots_[2]{}, *images_[SLOTS]{};
 };
 

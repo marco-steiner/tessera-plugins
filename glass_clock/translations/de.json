@@ -30,9 +30,9 @@
     "mode_strokes": "Striche",
     "offset": "Position",
     "offset_hint": "Verschiebt Datum und Uhrzeit gemeinsam nach oben (negativ) oder unten (positiv).",
-    "overlay": "Overlay-Bild",
-    "overlay_hint": "Legt das Bild der Entität mit dem Zusatz _overlay über die Uhr (aus image.clock wird image.clock_overlay). Ein PNG behält seine Transparenz.",
     "overlay_opa": "Overlay-Deckkraft",
-    "overlay_opa_hint": "Wie stark das Overlay-Bild insgesamt sichtbar ist, zusätzlich zur Transparenz des PNG."
+    "overlay_opa_hint": "Wie stark das Overlay-Bild insgesamt sichtbar ist, zusätzlich zur Transparenz des PNG.",
+    "overlay_url": "Overlay-Adresse",
+    "overlay_url_hint": "Web-Adresse eines PNG, das über der Uhr liegt, z. B. https://deine-domain.de/local/overlay.png (Datei im www-Ordner von Home Assistant). Der Host muss im Manifest unter permissions.network stehen. Leer lassen für kein Overlay. Das Bild darf höchstens 2 MB groß sein."
   }
 }

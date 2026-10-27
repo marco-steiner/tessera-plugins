@@ -30,9 +30,9 @@
     "mode_strokes": "Strokes",
     "offset": "Position",
     "offset_hint": "Moves the date and time together up (negative) or down (positive).",
-    "overlay": "Overlay picture",
-    "overlay_hint": "Shows the picture of the entity with the suffix _overlay over the clock (image.clock becomes image.clock_overlay). A PNG keeps its transparency.",
     "overlay_opa": "Overlay opacity",
-    "overlay_opa_hint": "How visible the overlay is as a whole, on top of the PNG's own transparency."
+    "overlay_opa_hint": "How visible the overlay is as a whole, on top of the PNG's own transparency.",
+    "overlay_url": "Overlay address",
+    "overlay_url_hint": "Web address of a PNG shown over the clock, e.g. https://your-domain.org/local/overlay.png (a file in Home Assistant's www folder). The host must be listed in the manifest under permissions.network. Leave empty for no overlay. The picture may be 2 MB at most."
   }
 }

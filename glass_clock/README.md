@@ -25,6 +25,17 @@ this kind cannot blur what lies behind a part).
 - **Strokes**: every digit is built from LVGL arcs and bars, about sixty objects. Use it if Smooth does not suit your
   screen. The option Detail sets how many layers an arc has (Light, Full or Minimal).
 
+## Overlay picture
+
+The option Overlay address takes the web address of a PNG that lies over the clock (for example a file in Home Assistant's
+`www` folder, which is served as `https://<your domain>/local/<file>.png`). Its transparency is kept; Overlay opacity
+makes it fainter. The host must be written in `permissions.network` of `tessera-plugin.yaml`.
+
+## Privacy
+
+Only the overlay picture leaves the home network: the Tessera app fetches the address you enter, so that host sees
+the request (the app's address and the time). Nothing else is sent. Without an overlay address nothing is fetched.
+
 ## Good to know
 
 - The picture comes from the entity: change the image entity in Home Assistant (an automation that picks a new
