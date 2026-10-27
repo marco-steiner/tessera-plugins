@@ -115,7 +115,7 @@ constexpr Seg G3[] = {{ARC, MID, UPPER, 200, 360, OPEN_START},
 constexpr Seg G4[] = {{BAR, 0.74f, TOP, 0.74f, BOTTOM, OPEN_BOTH},
                       {BAR, 0.74f, TOP, LEFT, 0.70f*H, OPEN_BOTH},
                       {BAR, LEFT, 0.70f*H, RIGHT, 0.70f*H, OPEN_BOTH}};
-constexpr Seg G5[] = {{BAR, 0.144f, TOP, 0.144f, 1.4f, OPEN_BOTH},
+constexpr Seg G5[] = {{BAR, 0.144f, TOP, 0.144f, 1.46f, OPEN_BOTH},
                       {BAR, 0.144f, TOP, RIGHT, TOP, OPEN_BOTH},
                       {ARC, MID, 1.7f, 215, 360, CLOSED},
                       {BAR, RIGHT, 1.7f, RIGHT, LOWER, CLOSED},
@@ -167,6 +167,8 @@ class GlassSaver : public tessera::Saver {
     // An option the person never touched may not be in the word: read each with its default.
     const char *layout = c.options["layout"] | "auto";
     const int dim = std::max(0, std::min(80, (int) (c.options["dim"] | 35)));
+    // -100 = Block ganz oben, 0 = mittig, +100 = ganz unten
+    const int offset = std::max(-100, std::min(100, (int) (c.options["offset"] | 0)));
     const bool date = c.options["date"] | true;
     seconds_ = c.options["seconds"] | true;
     // How many layers an arc is drawn from: 5 (body, both edges, the caps of free ends), 3 (no caps) or 1 (body only).
@@ -196,7 +198,7 @@ class GlassSaver : public tessera::Saver {
     // The layout: four digits in a row, or two rows of two. The smooth mode has its own, much taller shape (the table
     // in `tall`); the strokes keep the first. `arrange` fixes the metrics, the size and the places of the digits; with
     // `auto` the arrangement that makes the digits larger wins.
-    constexpr float IN = 0.05f, COLON = 0.45f, ROWS = 0.30f;
+    constexpr float IN = 0.15f, COLON = 0.45f, ROWS = 0.30f;
     const int date_h = date ? ui::line_height(Font::TITLE) : 0;
     const int date_gap = date ? ui::px(10) : 0;
     bool stacked = false;
@@ -214,7 +216,9 @@ class GlassSaver : public tessera::Saver {
       thick_ = std::max(3, (int) std::lround(stroke_ * unit_));
       rim_ = std::max(1, (int) std::lround(0.022f * unit_));
       const int digits_h = (int) std::lround((stacked ? 2 * glyph_h_ + ROWS : glyph_h_) * unit_);
-      top = (c.height - date_h - date_gap - digits_h) / 2 + date_h + date_gap;
+      const int block_h = date_h + date_gap + digits_h;
+      const int free_px = std::max(0, c.height - block_h);
+      top = free_px / 2 + (int) std::lround(offset / 100.0f * free_px / 2) + date_h + date_gap;
       if (stacked) {
         const int x0 = (c.width - (int) std::lround((2 + IN) * unit_)) / 2;
         const int step = (int) std::lround((1 + IN) * unit_);

@@ -27,6 +27,8 @@
     "mode": "Drawing",
     "mode_hint": "Smooth draws every digit as one soft picture with a bright edge all round (little memory, needs PSRAM). Strokes builds the digits from arcs and bars, the first way.",
     "mode_raster": "Smooth",
-    "mode_strokes": "Strokes"
+    "mode_strokes": "Strokes",
+    "offset": "Position",
+    "offset_hint": "Position of date and time"
   }
 }
