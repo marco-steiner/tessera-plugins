@@ -20,9 +20,13 @@
     "seconds": "Blinking colon",
     "seconds_hint": "The two dots between the hours and the minutes blink every second (digits in a row only).",
     "detail": "Detail",
-    "detail_hint": "Full closes free ends with a bright border but needs the most memory. Light skips those caps. Minimal draws the body only. If the screen goes black or flickers, take a lighter setting.",
+    "detail_hint": "Only for Strokes. Full closes free ends with a bright border but needs the most memory. Light skips those caps. Minimal draws the body only. If the screen goes black or flickers, take a lighter setting.",
     "detail_light": "Light",
     "detail_full": "Full",
-    "detail_minimal": "Minimal"
+    "detail_minimal": "Minimal",
+    "mode": "Drawing",
+    "mode_hint": "Smooth draws every digit as one soft picture with a bright edge all round (little memory, needs PSRAM). Strokes builds the digits from arcs and bars, the first way.",
+    "mode_raster": "Smooth",
+    "mode_strokes": "Strokes"
   }
 }

@@ -2,6 +2,9 @@
 # tall, thin digits of frosted glass over a picture from an image entity of Home Assistant, the way the iPhone's lock
 # screen shows it. The digits are drawn from rounded strokes (arcs and bars) with a clear body and a bright rim, since
 # a plugin has no font of its own. docs/MANIFEST.md has every field.
+#
+# Two ways to draw them, an option: "raster" draws each digit as one soft picture in the ink's colour (A8, in PSRAM), "strokes"
+# builds it from LVGL arcs and bars.
 id: glass_clock
 version: 0.1.0
 api: "0.17"
@@ -40,6 +43,14 @@ savers:
           - { value: auto, label: layout_auto }
           - { value: side, label: layout_side }
           - { value: stacked, label: layout_stacked }
+      - id: mode
+        kind: choice
+        label: mode
+        hint: mode_hint
+        default: raster
+        choices:
+          - { value: raster, label: mode_raster }
+          - { value: strokes, label: mode_strokes }
       - id: detail
         kind: choice
         label: detail

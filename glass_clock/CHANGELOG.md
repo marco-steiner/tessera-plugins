@@ -1,6 +1,8 @@
 # Changelog
 
 ## 0.1.0
+- New option Drawing: Smooth (default) draws each digit as one soft A8 picture with a bright edge all round, a handful of
+  objects instead of about sixty; Strokes keeps the first way, built from arcs and bars.
 - New option Detail (light, full, minimal): fewer layers per arc mean fewer LVGL objects and less memory. Light is the default.
 - Free ends of the round strokes get their own cap with a bright border (the 3, 2, 5, 6, 9); each stroke says in `open`
   which of its ends are free.

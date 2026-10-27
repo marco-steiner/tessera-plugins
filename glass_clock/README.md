@@ -17,6 +17,14 @@ this kind cannot blur what lies behind a part).
 4. Put the step first in the order, so it shows before the other steps.
 5. Set the options under the step: the layout, how much the picture is dimmed, the date, the blinking colon.
 
+## Two ways to draw the digits
+
+- **Smooth** (default): the plugin calculates each digit into a small picture (one byte a pixel, in PSRAM) and shows it
+  as one object. The edge of the digit is one bright line all round, with no brighter spots where strokes meet. It needs a
+  board with PSRAM; without room for the pictures it uses Strokes by itself.
+- **Strokes**: every digit is built from LVGL arcs and bars, about sixty objects. Use it if Smooth does not suit your
+  screen. The option Detail sets how many layers an arc has (Light, Full or Minimal).
+
 ## Good to know
 
 - The picture comes from the entity: change the image entity in Home Assistant (an automation that picks a new

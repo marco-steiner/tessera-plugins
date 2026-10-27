@@ -84,6 +84,20 @@ struct Digit {
   int x = 0, y = 0;  // top left, in the glass's pixels
 };
 
+// The pictures of the smooth mode (A8, one byte a pixel: how much of the ink shows), one per digit slot. They are kept in
+// PSRAM for as long as the firmware runs and reused by the next saver, so nothing that LVGL still holds is ever freed.
+constexpr int SLOTS = 4;
+constexpr int PAD = 2;  // pixels around a digit's box, for the soft edge
+struct RasterPool {
+  uint8_t *pixels[SLOTS] = {};
+  size_t capacity[SLOTS] = {};
+  lv_image_dsc_t picture[SLOTS] = {};
+};
+RasterPool &raster_pool() {
+  static RasterPool pool;
+  return pool;
+}
+
 }  // namespace
 
 class GlassSaver : public tessera::Saver {
@@ -96,6 +110,9 @@ class GlassSaver : public tessera::Saver {
     seconds_ = c.options["seconds"] | true;
     // How many layers an arc is drawn from: 5 (body, both edges, the caps of free ends), 3 (no caps) or 1 (body only).
     // Every layer is an LVGL object of its own, so fewer layers leave the screen more memory.
+    // `mode`: "raster" draws each digit as one soft picture (a few objects, glass with a continuous bright edge), "strokes"
+    // builds it from arcs and bars (the first way, many objects).
+    const bool want_raster = std::strcmp(c.options["mode"] | "raster", "strokes") != 0;
     const char *detail = c.options["detail"] | "light";
     layers_ = std::strcmp(detail, "full") == 0 ? 5 : (std::strcmp(detail, "minimal") == 0 ? 1 : 3);
     // The glass gets a little fainter at night, when the level is low and a face may go darker still.
@@ -162,7 +179,9 @@ class GlassSaver : public tessera::Saver {
         lv_obj_set_pos(dots_[i], cx - dot / 2, top + (int) std::lround((i == 0 ? 0.62f : 1.21f) * unit_) - dot / 2);
       }
     }
-    for (Digit &d : digits_) make_digit(c.parent, d);
+    raster_ = want_raster && make_rasters(c.parent);  // without room for the pictures: the strokes
+    if (!raster_)
+      for (Digit &d : digits_) make_digit(c.parent, d);
   }
 
   // The step's data: its entity's id, `entity`, which the picture's address is made of. A picture comes from the app,
@@ -198,10 +217,10 @@ class GlassSaver : public tessera::Saver {
     const size_t colon = clock.find(':');
     if (colon == std::string::npos || colon == 0 || colon + 2 >= clock.size()) return;
     const std::string hours = clock.substr(0, colon);
-    paint_digit(digits_[0], hours.size() > 1 ? hours[hours.size() - 2] : ' ');
-    paint_digit(digits_[1], hours.back());
-    paint_digit(digits_[2], clock[colon + 1]);
-    paint_digit(digits_[3], clock[colon + 2]);
+    put(0, hours.size() > 1 ? hours[hours.size() - 2] : ' ');
+    put(1, hours.back());
+    put(2, clock[colon + 1]);
+    put(3, clock[colon + 2]);
     if (date_) {
       const size_t space = clock.find(' ', colon);
       const std::string suffix = space == std::string::npos ? "" : " " + clock.substr(space + 1);
@@ -250,6 +269,150 @@ class GlassSaver : public tessera::Saver {
       bar = glass_block(parent);
       lv_obj_add_flag(bar, LV_OBJ_FLAG_HIDDEN);
     }
+  }
+
+  // ---- The smooth mode ----
+
+  void put(int slot, char ch) {
+    if (raster_) raster_digit(slot, ch);
+    else paint_digit(digits_[slot], ch);
+  }
+
+  // One picture and one lv_image for each digit slot. False when the memory for a picture is not there.
+  bool make_rasters(lv_obj_t *parent) {
+    RasterPool &pool = raster_pool();
+    const int w = (int) std::lround(unit_) + 2 * PAD, h = (int) std::lround(GLYPH_H * unit_) + 2 * PAD;
+    const size_t bytes = (size_t) w * h;
+    for (int i = 0; i < SLOTS; ++i) {
+      if (pool.capacity[i] >= bytes) continue;
+      void *p = pool.pixels[i] ? roomy::reallocate(pool.pixels[i], bytes) : roomy::allocate(bytes);
+      if (!p) return false;
+      pool.pixels[i] = (uint8_t *) p;
+      pool.capacity[i] = bytes;
+    }
+    for (int i = 0; i < SLOTS; ++i) {
+      std::memset(pool.pixels[i], 0, bytes);
+      lv_image_dsc_t &dsc = pool.picture[i];
+      dsc = {};
+      dsc.header.magic = LV_IMAGE_HEADER_MAGIC;
+      dsc.header.cf = LV_COLOR_FORMAT_A8;
+      dsc.header.w = w;
+      dsc.header.h = h;
+      dsc.header.stride = w;
+      dsc.data = pool.pixels[i];
+      dsc.data_size = bytes;
+      lv_obj_t *img = lv_image_create(parent);
+      lv_obj_remove_flag(img, LV_OBJ_FLAG_CLICKABLE);
+      lv_image_set_src(img, &dsc);
+      // An A8 picture has only the alpha: LVGL paints it in the recolour, the ink's colour (white on the dark glass).
+      lv_obj_set_style_image_recolor(img, ui::color(theme::INK), 0);
+      lv_obj_set_style_image_recolor_opa(img, LV_OPA_COVER, 0);
+      lv_obj_set_pos(img, digits_[i].x - PAD, digits_[i].y - PAD);
+      images_[i] = img;
+    }
+    return true;
+  }
+
+  // Draw a digit into its picture. Every pixel gets its distance to the nearest centre line of the digit's strokes (a
+  // bar is a segment, an arc a part of a circle). Within half a stroke of one the pixel is glass: a clear body that is
+  // a little brighter at the top, and a soft bright edge all round the digit's outline. The strokes of a digit merge,
+  // so there is no border across a join and no brighter spot where two strokes overlap.
+  void raster_digit(int slot, char ch) {
+    Digit &d = digits_[slot];
+    if (d.shown == ch) return;
+    d.shown = ch;
+    RasterPool &pool = raster_pool();
+    const lv_image_dsc_t &dsc = pool.picture[slot];
+    const int w = dsc.header.w, h = dsc.header.h;
+    uint8_t *px = pool.pixels[slot];
+    std::memset(px, 0, (size_t) w * h);
+    if (ch >= '0' && ch <= '9') {
+      struct Prim {
+        bool arc, full;
+        float a, b, c, d;       // a bar: both ends; an arc: its centre, then (c) the start and (d) the sweep in degrees
+        float ex0, ey0, ex1, ey1;  // an arc's two end points
+      };
+      constexpr int MAX_PRIMS = 8;
+      Prim prims[MAX_PRIMS];
+      int n = 0;
+      const Glyph &g = GLYPHS[ch - '0'];
+      const float r = RADIUS * unit_;
+      for (int i = 0; i < g.count && n < MAX_PRIMS; ++i) {
+        const Seg &s = g.segs[i];
+        Prim &q = prims[n++];
+        q.arc = s.kind == ARC;
+        q.full = false;
+        if (!q.arc) {
+          q.a = PAD + s.a * unit_;
+          q.b = PAD + s.b * unit_;
+          q.c = PAD + s.c * unit_;
+          q.d = PAD + s.d * unit_;
+        } else {
+          q.a = PAD + s.a * unit_;
+          q.b = PAD + s.b * unit_;
+          q.full = s.d - s.c >= 359;
+          q.c = std::fmod(std::fmod(s.c, 360.0f) + 360.0f, 360.0f);
+          q.d = q.full ? 360.0f : std::fmod(std::fmod(s.d - s.c, 360.0f) + 360.0f, 360.0f);
+          const float a0 = q.c * 3.14159265f / 180.0f, a1 = (q.c + q.d) * 3.14159265f / 180.0f;
+          q.ex0 = q.a + r * std::cos(a0);
+          q.ey0 = q.b + r * std::sin(a0);
+          q.ex1 = q.a + r * std::cos(a1);
+          q.ey1 = q.b + r * std::sin(a1);
+        }
+      }
+      const float half = STROKE * unit_ / 2;
+      const float limit = half + 1.0f;
+      const float body = body_opa_ / 255.0f, rim_f = rim_opa_ / 255.0f;
+      const float edge = 1.0f - (1.0f - body) * (1.0f - rim_f);  // body and rim on one another
+      const float soft = std::max(1.0f, rim_ * 1.8f);             // how far the bright edge reaches inwards
+      const float tall = GLYPH_H * unit_;
+      for (int y = 0; y < h; ++y) {
+        const float py = y + 0.5f;
+        // The body is a little brighter at the top than at the bottom, as light falls on glass.
+        const float lit = std::min(1.0f, std::max(0.0f, (py - PAD) / tall));
+        const float body_y = std::min(1.0f, body * (1.25f - 0.45f * lit));
+        for (int x = 0; x < w; ++x) {
+          const float pxf = x + 0.5f;
+          float best = 1e9f;
+          for (int i = 0; i < n; ++i) {
+            const Prim &q = prims[i];
+            float dist;
+            if (!q.arc) {
+              const float dx = q.c - q.a, dy = q.d - q.b;
+              const float len2 = dx * dx + dy * dy;
+              float t = len2 > 0 ? ((pxf - q.a) * dx + (py - q.b) * dy) / len2 : 0;
+              t = std::min(1.0f, std::max(0.0f, t));
+              dist = std::hypot(pxf - (q.a + t * dx), py - (q.b + t * dy));
+            } else {
+              const float ddx = pxf - q.a, ddy = py - q.b;
+              const float ring = std::fabs(std::sqrt(ddx * ddx + ddy * ddy) - r);
+              if (ring >= best || ring > limit) continue;
+              if (q.full) {
+                dist = ring;
+              } else {
+                float ang = std::atan2(ddy, ddx) * 57.2957795f;
+                if (ang < 0) ang += 360.0f;
+                float rel = ang - q.c;
+                if (rel < 0) rel += 360.0f;
+                dist = rel <= q.d ? ring
+                                  : std::min(std::hypot(pxf - q.ex0, py - q.ey0), std::hypot(pxf - q.ex1, py - q.ey1));
+              }
+            }
+            if (dist < best) best = dist;
+          }
+          if (best > limit) continue;
+          const float cover = std::min(1.0f, std::max(0.0f, half + 0.5f - best));
+          if (cover <= 0) continue;
+          const float depth = std::max(0.0f, half - best);
+          float glow = std::max(0.0f, 1.0f - depth / soft);
+          glow *= glow;
+          const float alpha = (body_y + (edge - body_y) * glow) * cover;
+          px[(size_t) y * w + x] = (uint8_t) std::lround(std::min(1.0f, alpha) * 255.0f);
+        }
+      }
+    }
+    lv_image_set_src(images_[slot], &dsc);  // the same picture again: LVGL draws what is in it now
+    lv_obj_invalidate(images_[slot]);
   }
 
   // Show a digit in its slot: place the strokes it needs, hide the rest. Nothing happens when it already shows it.
@@ -362,11 +525,11 @@ class GlassSaver : public tessera::Saver {
 
   int thick_ = 3, rim_ = 1, layers_ = 3;
   float unit_ = 50;
-  bool seconds_ = true;
+  bool seconds_ = true, raster_ = false;
   lv_opa_t body_opa_ = LV_OPA_30, rim_opa_ = LV_OPA_70;
   uint32_t minute_ = 0;
   Digit digits_[4];
-  lv_obj_t *place_{}, *shade_{}, *date_{}, *dots_[2]{};
+  lv_obj_t *place_{}, *shade_{}, *date_{}, *dots_[2]{}, *images_[SLOTS]{};
 };
 
 void GlassClock::setup() {
