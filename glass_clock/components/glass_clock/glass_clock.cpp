@@ -88,7 +88,7 @@ struct Digit {
 // be as long as it needs to be; the two bowls of the 8 touch in the middle. Same units as above (1 wide). EXT is how far
 // the straight sides of a bowl run, UP2 and LOW2 the centres of the arcs that close the upper and the lower bowl.
 namespace tall {
-constexpr float H = 3.0f, T = 0.15f, R = (1.0f - T) / 2;
+constexpr float H = 3.0f, T = 0.13f, R = (1.0f - T) / 2;
 constexpr float LEFT = T / 2, RIGHT = 1.0f - T / 2, TOP = T / 2, BOTTOM = H - T / 2, MID = 0.5f;
 constexpr float UPPER = T / 2 + R, LOWER = H - T / 2 - R;
 constexpr float EXT = H / 2 + T / 2 - 1.0f;
@@ -98,50 +98,29 @@ constexpr Seg G0[] = {{ARC, MID, UPPER, 180, 360, CLOSED},
                       {ARC, MID, LOWER, 0, 180, CLOSED},
                       {BAR, LEFT, UPPER, LEFT, LOWER, CLOSED},
                       {BAR, RIGHT, UPPER, RIGHT, LOWER, CLOSED}};
-constexpr Seg G1[] = {{BAR, 0.72f, TOP, 0.72f, BOTTOM, OPEN_BOTH},
-                      {BAR, 0.16f, 0.42f, 0.72f, TOP, OPEN_BOTH}};
-constexpr Seg G2[] = {{ARC, MID, UPPER, 180, 360, OPEN_START},
-                      {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
-                      {ARC, MID, UP2, 0, 25, CLOSED},
-                      {BAR, 0.894f, UP2+0.184f, LEFT, BOTTOM, CLOSED},
-                      {BAR, LEFT, BOTTOM, RIGHT, BOTTOM, OPEN_BOTH}};
-constexpr Seg G3[] = {{ARC, MID, UPPER, 200, 360, OPEN_START},
-                      {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
-                      {ARC, MID, UP2, 0, 90, CLOSED},
-                      {BAR, 0.30f, H/2, MID, H/2, OPEN_BOTH},
-                      {ARC, MID, LOW2, 270, 360, CLOSED},
-                      {BAR, RIGHT, LOW2, RIGHT, LOWER, CLOSED},
-                      {ARC, MID, LOWER, 0, 160, OPEN_END}};
-constexpr Seg G4[] = {{BAR, 0.74f, TOP, 0.74f, BOTTOM, OPEN_BOTH},
-                      {BAR, 0.74f, TOP, LEFT, 0.70f*H, OPEN_BOTH},
-                      {BAR, LEFT, 0.70f*H, RIGHT, 0.70f*H, OPEN_BOTH}};
-constexpr Seg G5[] = {{BAR, 0.144f, TOP, 0.144f, 1.4f, OPEN_BOTH},
-                      {BAR, 0.144f, TOP, RIGHT, TOP, OPEN_BOTH},
-                      {ARC, MID, 1.7f, 215, 360, CLOSED},
-                      {BAR, RIGHT, 1.7f, RIGHT, LOWER, CLOSED},
-                      {ARC, MID, LOWER, 0, 155, OPEN_END}};
-constexpr Seg G6[] = {{ARC, MID, 1.7f, 180, 360, CLOSED},
-                      {ARC, MID, LOWER, 0, 180, CLOSED},
-                      {BAR, LEFT, LOW2, LEFT, LOWER, CLOSED},
-                      {BAR, RIGHT, 1.7f, RIGHT, LOWER, CLOSED},
-                      {BAR, LEFT, UPPER, LEFT, LOW2, CLOSED},
-                      {ARC, MID, UPPER, 180, 335, OPEN_END}};
+constexpr Seg G1[] = {{BAR, 0.68f, TOP, 0.68f, BOTTOM, OPEN_BOTH},
+                      {BAR, 0.30f, TOP, 0.68f, TOP, OPEN_BOTH}};
+constexpr Seg G2[] = {{ARC, MID, UPPER-0.005f, 180, 450, OPEN_START},
+                      {ARC, MID, LOWER, 90, 270, CLOSED},
+                      {BAR, 0.50f, BOTTOM, RIGHT, BOTTOM, OPEN_BOTH}};
+constexpr Seg G3[] = {{ARC, MID, UPPER, 200, 450, OPEN_BOTH},
+                      {ARC, MID, LOWER, 270, 520, OPEN_BOTH}};
+constexpr Seg G4[] = {{BAR, 0.75f, TOP, 0.75f, BOTTOM, OPEN_BOTH},
+                      {BAR, LEFT, TOP, LEFT, 0.95f, OPEN_BOTH},
+                      {BAR, LEFT, 0.95f, RIGHT, 0.95f, OPEN_BOTH}};
+constexpr Seg G5[] = {{BAR, 0.15f, TOP, 0.15f, 1.1f, OPEN_BOTH},
+                      {BAR, 0.15f, TOP, RIGHT, TOP, OPEN_BOTH},
+                      {ARC, MID, LOWER, 215, 510, OPEN_BOTH}};
+constexpr Seg G6[] = {{ARC, MID, LOWER, 0, 360, CLOSED},
+                      {BAR, LEFT, UPPER, LEFT, LOWER, CLOSED},
+                      {ARC, MID, UPPER, 180, 330, OPEN_END}};
 constexpr Seg G7[] = {{BAR, LEFT, TOP, RIGHT, TOP, OPEN_BOTH},
-                      {BAR, RIGHT, TOP, 0.28f, BOTTOM, OPEN_BOTH}};
-constexpr Seg G8[] = {{ARC, MID, UPPER, 180, 360, CLOSED},
-                      {ARC, MID, UP2, 0, 180, CLOSED},
-                      {BAR, LEFT, UPPER, LEFT, UP2, CLOSED},
-                      {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
-                      {ARC, MID, LOW2, 180, 360, CLOSED},
-                      {ARC, MID, LOWER, 0, 180, CLOSED},
-                      {BAR, LEFT, LOW2, LEFT, LOWER, CLOSED},
-                      {BAR, RIGHT, LOW2, RIGHT, LOWER, CLOSED}};
-constexpr Seg G9[] = {{ARC, MID, UPPER, 180, 360, CLOSED},
-                      {ARC, MID, 1.3f, 0, 180, CLOSED},
-                      {BAR, LEFT, 0.5f, LEFT, 1.3f, CLOSED},
-                      {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
-                      {BAR, RIGHT, UP2, RIGHT, LOWER, CLOSED},
-                      {ARC, MID, LOWER, 0, 155, OPEN_END}};
+                      {BAR, 0.91f, TOP, 0.91f, BOTTOM, OPEN_BOTH}};
+constexpr Seg G8[] = {{ARC, MID, UPPER, 0, 360, CLOSED},
+                      {ARC, MID, LOWER, 0, 360, CLOSED}};
+constexpr Seg G9[] = {{ARC, MID, UPPER, 0, 360, CLOSED},
+                      {BAR, RIGHT, UPPER, RIGHT, LOWER, CLOSED},
+                      {ARC, MID, LOWER, 0, 150, OPEN_END}};
 constexpr Glyph GLYPHS[10] = {{G0, 4}, {G1, 2}, {G2, 3}, {G3, 2}, {G4, 3}, {G5, 3}, {G6, 3}, {G7, 2}, {G8, 2}, {G9, 3}};
 }  // namespace tall
 
@@ -196,7 +175,7 @@ class GlassSaver : public tessera::Saver {
     // The layout: four digits in a row, or two rows of two. The smooth mode has its own, much taller shape (the table
     // in `tall`); the strokes keep the first. `arrange` fixes the metrics, the size and the places of the digits; with
     // `auto` the arrangement that makes the digits larger wins.
-    constexpr float IN = 0.05f, COLON = 0.45f, ROWS = 0.30f;
+    constexpr float IN = 0.22f, COLON = 0.56f, ROWS = 0.30f;
     const int date_h = date ? ui::line_height(Font::TITLE) : 0;
     const int date_gap = date ? ui::px(10) : 0;
     bool stacked = false;
