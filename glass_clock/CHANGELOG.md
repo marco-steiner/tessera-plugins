@@ -1,7 +1,10 @@
 # Changelog
 
-## 0.1.1
+## 0.2.0
 - New options Overlay address and Overlay opacity: a PNG from a web address (the host is named in permissions.network) lies over the clock.
+- New option Position: moves the date and the time together up or down.
+
+## 0.1.0
 - The smooth mode has its own, much taller and thinner digits with oval bowls (the 9 and 6 like the 0); Strokes keeps the
   first shape. Auto layout picks the arrangement that makes the digits larger.
 - New option Drawing: Smooth (default) draws each digit as one soft A8 picture with a bright edge all round, a handful of

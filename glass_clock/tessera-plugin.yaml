@@ -6,7 +6,7 @@
 # Two ways to draw them, an option: "raster" draws each digit as one soft picture in the ink's colour (A8, in PSRAM), "strokes"
 # builds it from LVGL arcs and bars.
 id: glass_clock
-version: 0.1.1
+version: 0.2.0
 api: "0.17"
 icon: clock-outline
 maintainer: glass-clock-author
@@ -22,9 +22,9 @@ flash_kb: 8
 # Replace the host with your domain (no address, no port, nothing on the home network), and the privacy link with a page
 # that says what the host sees (the README's Privacy section is fine).
 permissions:
-  network: [https://smarthomebude.eu/]
+  network: [smarthomebude.eu]
 attributes: [cloud]
-privacy: https://example.org/glass_clock#privacy
+privacy: https://github.com/marco-steiner/tessera-plugins/tree/main/glass_clock#privacy
 
 savers:
   # A step of its own: the person picks an image entity (or a camera) for it in the Screensaver card, and puts the step
