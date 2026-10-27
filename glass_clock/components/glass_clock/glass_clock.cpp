@@ -121,7 +121,7 @@ constexpr Seg G8[] = {{ARC, MID, UPPER, 0, 360, CLOSED},
 constexpr Seg G9[] = {{ARC, MID, UPPER, 0, 360, CLOSED},
                       {BAR, RIGHT, UPPER, RIGHT, LOWER, CLOSED},
                       {ARC, MID, LOWER, 0, 150, OPEN_END}};
-constexpr Glyph GLYPHS[10] = {{G0, 4}, {G1, 2}, {G2, 3}, {G3, 2}, {G4, 3}, {G5, 3}, {G6, 3}, {G7, 2}, {G8, 2}, {G9, 3}};
+constexpr Glyph GLYPHS[10] = {{G0, 4}, {G1, 2}, {G2, 5}, {G3, 7}, {G4, 3}, {G5, 5}, {G6, 6}, {G7, 2}, {G8, 8}, {G9, 6}};
 }  // namespace tall
 
 // The pictures of the smooth mode (A8, one byte a pixel: how much of the ink shows), one per digit slot. They are kept in
@@ -175,7 +175,7 @@ class GlassSaver : public tessera::Saver {
     // The layout: four digits in a row, or two rows of two. The smooth mode has its own, much taller shape (the table
     // in `tall`); the strokes keep the first. `arrange` fixes the metrics, the size and the places of the digits; with
     // `auto` the arrangement that makes the digits larger wins.
-    constexpr float IN = 0.22f, COLON = 0.56f, ROWS = 0.30f;
+    constexpr float IN = 0.05f, COLON = 0.45f, ROWS = 0.30f;
     const int date_h = date ? ui::line_height(Font::TITLE) : 0;
     const int date_gap = date ? ui::px(10) : 0;
     bool stacked = false;
