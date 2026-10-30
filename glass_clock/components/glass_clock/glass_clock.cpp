@@ -1,4 +1,5 @@
 #include "glass_clock.h"
+#include "overlay_mask.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -178,6 +179,18 @@ class GlassSaver : public tessera::Saver {
     overlay_url_ = c.options["overlay_url"] | "";
     const bool overlay_on = !overlay_url_.empty();
     const int overlay_opa = std::max(10, std::min(100, (int) (c.options["overlay_opa"] | 100)));
+    // Where the overlay lies. The screen draws a picture as opaque pixels (RGB565, no alpha): the app has already put the
+    // PNG over what lies under it, so its transparent parts are copies of the background, and the picture can never let
+    // the clock show through (and `overlay_opa` made those copies fade, which is what looked like a changed transparency).
+    //   cut     under the clock, and the digits are cut out wherever the PNG is opaque (its silhouette, from
+    //           overlay_mask.h): the overlay looks as if it stood in front of the clock. The default.
+    //   behind  under the clock, nothing cut out.
+    //   front   over the clock as one opaque picture (the clock is hidden under it).
+    const char *layer = c.options["overlay_layer"] | "cut";
+    const bool overlay_front = std::strcmp(layer, "front") == 0;
+    use_mask_ = overlay_on && std::strcmp(layer, "cut") == 0 && MASK_W > 0 && MASK_H > 0;
+    glass_w_ = c.width;
+    glass_h_ = c.height;
     seconds_ = c.options["seconds"] | true;
     // How many layers an arc is drawn from: 5 (body, both edges, the caps of free ends), 3 (no caps) or 1 (body only).
     // Every layer is an LVGL object of its own, so fewer layers leave the screen more memory.
@@ -197,6 +210,19 @@ class GlassSaver : public tessera::Saver {
       lv_obj_set_size(place_, c.width, c.height);
       lv_obj_set_pos(place_, 0, 0);
     }
+    // The overlay: a picture of its own, from the address in the option. Made before the shade and the clock, so it is dimmed
+    // with the background and the digits lie over it; `front` makes it last instead.
+    auto make_overlay = [&]() {
+      if (!ui::pictures() || !overlay_on) return;
+      overlay_ = ui::picture(c.parent, tessera::Placeholder::NONE);
+      lv_obj_remove_flag(overlay_, LV_OBJ_FLAG_CLICKABLE);
+      lv_obj_set_size(overlay_, c.width, c.height);
+      lv_obj_set_pos(overlay_, 0, 0);
+      lv_obj_set_style_opa(overlay_, (lv_opa_t) (overlay_opa * 255 / 100), 0);
+      ESP_LOGI(TAG, "overlay picture made (%dx%d, opa %d%%, layer %s, mask %s)", (int) c.width, (int) c.height, overlay_opa,
+               layer, use_mask_ ? "on" : "off");
+    };
+    if (!overlay_front) make_overlay();
     shade_ = ui::block(c.parent, theme::CAMERA_PAGE);
     lv_obj_set_style_radius(shade_, 0, 0);
     lv_obj_set_style_bg_opa(shade_, (lv_opa_t) (dim * 255 / 100), 0);
@@ -269,19 +295,20 @@ class GlassSaver : public tessera::Saver {
     if (raster_) create_images(c.parent);
     else
       for (Digit &d : digits_) make_digit(c.parent, d);
-
-    // The overlay is made last, so it lies over the digits. A PNG keeps its own transparency; `overlay_opa` makes the
-    // whole picture fainter on top of that.
-    if (ui::pictures() && overlay_on) {
-      overlay_ = ui::picture(c.parent, tessera::Placeholder::NONE);
-      lv_obj_remove_flag(overlay_, LV_OBJ_FLAG_CLICKABLE);
-      lv_obj_set_size(overlay_, c.width, c.height);
-      lv_obj_set_pos(overlay_, 0, 0);
-      lv_obj_set_style_opa(overlay_, (lv_opa_t) (overlay_opa * 255 / 100), 0);
-      ESP_LOGI(TAG, "overlay picture made (%dx%d, opa %d%%)", (int) c.width, (int) c.height, overlay_opa);
-    } else {
-      ESP_LOGI(TAG, "no overlay: address %s, pictures() %s", overlay_on ? "set" : "empty", ui::pictures() ? "yes" : "no");
+    // A colon dot that lies on the overlay's silhouette stays hidden (the dots are objects, not part of the digits' pictures).
+    for (int i = 0; i < 2; ++i) {
+      if (!dots_[i] || !use_mask_) continue;
+      const float mx = lv_obj_get_x(dots_[i]) + lv_obj_get_width(dots_[i]) / 2.0f;
+      const float my = lv_obj_get_y(dots_[i]) + lv_obj_get_height(dots_[i]) / 2.0f;
+      if (mask_at(mx, my) > 0.5f) {
+        dot_masked_[i] = true;
+        lv_obj_add_flag(dots_[i], LV_OBJ_FLAG_HIDDEN);
+      }
     }
+
+    if (overlay_front) make_overlay();
+    if (!overlay_)
+      ESP_LOGI(TAG, "no overlay: address %s, pictures() %s", overlay_on ? "set" : "empty", ui::pictures() ? "yes" : "no");
   }
 
   // The step's data: its entity's id, `entity`, which the picture's address is made of. A picture comes from the app,
@@ -307,11 +334,14 @@ class GlassSaver : public tessera::Saver {
     if (!epoch) return;  // the screen's clock is not set yet
     // The colon blinks with the seconds: only its two small boxes are drawn again.
     if (dots_[0] && seconds_) {
-      const bool hidden = lv_obj_has_flag(dots_[0], LV_OBJ_FLAG_HIDDEN);
-      if ((epoch % 2 == 0) == hidden) {
-        for (lv_obj_t *dot : dots_) {
-          if (epoch % 2 == 0) lv_obj_remove_flag(dot, LV_OBJ_FLAG_HIDDEN);
-          else lv_obj_add_flag(dot, LV_OBJ_FLAG_HIDDEN);
+      // A dot that the overlay's silhouette covers stays hidden; the others blink.
+      const int lead = dot_masked_[0] ? 1 : 0;
+      const bool hidden = lv_obj_has_flag(dots_[lead], LV_OBJ_FLAG_HIDDEN);
+      if (!(dot_masked_[0] && dot_masked_[1]) && (epoch % 2 == 0) == hidden) {
+        for (int i = 0; i < 2; ++i) {
+          if (dot_masked_[i]) continue;
+          if (epoch % 2 == 0) lv_obj_remove_flag(dots_[i], LV_OBJ_FLAG_HIDDEN);
+          else lv_obj_add_flag(dots_[i], LV_OBJ_FLAG_HIDDEN);
         }
       }
     }
@@ -520,7 +550,9 @@ class GlassSaver : public tessera::Saver {
           const float depth = std::max(0.0f, half - best);
           float glow = std::max(0.0f, 1.0f - depth / soft);
           glow *= glow;
-          const float alpha = (body_y + (edge - body_y) * glow) * cover;
+          float alpha = (body_y + (edge - body_y) * glow) * cover;
+          // Where the overlay's picture is opaque the digit is cut out, as if the overlay stood in front of it.
+          if (use_mask_) alpha *= 1.0f - mask_at(digits_[slot].x - PAD + x + 0.5f, digits_[slot].y - PAD + y + 0.5f);
           px[(size_t) y * w + x] = (uint8_t) std::lround(std::min(1.0f, alpha) * 255.0f);
         }
       }
@@ -644,6 +676,24 @@ class GlassSaver : public tessera::Saver {
   lv_opa_t body_opa_ = LV_OPA_30, rim_opa_ = LV_OPA_70;
   uint32_t minute_ = 0;
   Digit digits_[4];
+  // How much of the overlay's silhouette covers a point of the glass (in the glass's pixels), 0 to 1: the mask of
+  // overlay_mask.h, bilinear. 0 when there is no mask.
+  float mask_at(float gx, float gy) const {
+    if (MASK_W <= 0 || MASK_H <= 0 || glass_w_ <= 0 || glass_h_ <= 0) return 0.0f;
+    const float u = gx / glass_w_ * MASK_W - 0.5f, v = gy / glass_h_ * MASK_H - 0.5f;
+    const int x0 = (int) std::floor(u), y0 = (int) std::floor(v);
+    const float fx = u - x0, fy = v - y0;
+    auto at = [](int x, int y) {
+      x = std::max(0, std::min(MASK_W - 1, x));
+      y = std::max(0, std::min(MASK_H - 1, y));
+      return MASK[y * MASK_W + x] / 255.0f;
+    };
+    return (at(x0, y0) * (1 - fx) + at(x0 + 1, y0) * fx) * (1 - fy) +
+           (at(x0, y0 + 1) * (1 - fx) + at(x0 + 1, y0 + 1) * fx) * fy;
+  }
+
+  bool use_mask_ = false, dot_masked_[2] = {false, false};
+  int glass_w_ = 0, glass_h_ = 0;
   std::string overlay_url_;
   lv_obj_t *overlay_{}, *place_{}, *shade_{}, *date_{}, *dots_[2]{}, *images_[SLOTS]{};
 };

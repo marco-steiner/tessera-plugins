@@ -45,3 +45,20 @@ the request (the app's address and the time). Nothing else is sent. Without an o
 - The digits stand on the same place for hours, so the screen moves the whole saver a millimetre every minute against
   burn-in. A 12-hour screen shows AM or PM beside the date.
 - It uses nothing outside the screen but the picture the app fetches from Home Assistant.
+
+
+## Overlay in front of the clock (cut out)
+
+The screen draws every picture as opaque pixels (RGB565, no alpha). Tessera's app puts your PNG over the background
+before it sends it, so the PNG's transparent parts arrive as copies of the background. That is why a picture laid over
+the clock hid it, and why its opacity only faded those copies over the clock, never "the transparent parts".
+
+So the overlay now lies under the clock, and the plugin cuts the digits out where the PNG is opaque:
+
+1. Open `glass_clock_mask.html` in a browser, drop your overlay PNG in, and set the glass size of your screen (480 x 480
+   for the Guition 4).
+2. Save the result as `overlay_mask.h` in `components/glass_clock/` and build the screen again.
+3. Set **Overlay position** to *Clock cut out by the overlay* (the default).
+
+The mask is part of the firmware, so make a new one whenever the PNG changes. It works with the smooth drawing (not
+Strokes), and a colon dot that lies on the silhouette stays hidden. The date line is not cut out.

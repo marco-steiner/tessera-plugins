@@ -6,7 +6,7 @@
 # Two ways to draw them, an option: "raster" draws each digit as one soft picture in the ink's colour (A8, in PSRAM), "strokes"
 # builds it from LVGL arcs and bars.
 id: glass_clock
-version: 0.2.0
+version: 0.3.0
 api: "0.17"
 icon: clock-outline
 maintainer: glass-clock-author
@@ -72,5 +72,14 @@ savers:
       - { id: offset, kind: number, min: -100, max: 100, step: 5, unit: "%", default: 0, label: offset, hint: offset_hint }
       - { id: overlay_url, kind: text, default: "", label: overlay_url, hint: overlay_url_hint }
       - { id: overlay_opa, kind: number, min: 10, max: 100, step: 5, unit: "%", default: 100, label: overlay_opa, hint: overlay_opa_hint }
+      - id: overlay_layer
+        kind: choice
+        label: overlay_layer
+        hint: overlay_layer_hint
+        default: cut
+        choices:
+          - { value: cut, label: overlay_cut }
+          - { value: behind, label: overlay_behind }
+          - { value: front, label: overlay_front }
       - { id: date, kind: toggle, default: true, label: date, hint: date_hint }
       - { id: seconds, kind: toggle, default: true, label: seconds, hint: seconds_hint }

@@ -31,8 +31,13 @@
     "offset": "Position",
     "offset_hint": "Verschiebt Datum und Uhrzeit gemeinsam nach oben (negativ) oder unten (positiv).",
     "overlay_opa": "Overlay-Deckkraft",
-    "overlay_opa_hint": "Wie stark das Overlay-Bild insgesamt sichtbar ist, zusätzlich zur Transparenz des PNG.",
+    "overlay_opa_hint": "Wie sichtbar das Overlay ist. Bei Ausgeschnitten und Hinter der Uhr blassen nur die deckenden Teile des PNG aus, bei Davor das ganze Bild.",
     "overlay_url": "Overlay-Adresse",
-    "overlay_url_hint": "Web-Adresse eines PNG, das über der Uhr liegt, z. B. https://deine-domain.de/local/overlay.png (Datei im www-Ordner von Home Assistant). Der Host muss im Manifest unter permissions.network stehen. Leer lassen für kein Overlay. Das Bild darf höchstens 2 MB groß sein."
+    "overlay_url_hint": "Web-Adresse eines PNG, das über der Uhr liegt, z. B. https://deine-domain.de/local/overlay.png (Datei im www-Ordner von Home Assistant). Der Host muss im Manifest unter permissions.network stehen. Leer lassen für kein Overlay. Das Bild darf höchstens 2 MB groß sein.",
+    "overlay_layer": "Position des Overlays",
+    "overlay_layer_hint": "Der Screen kann keine Transparenz zeichnen, das Overlay ist ein flaches Bild. Ausgeschnitten: Die Uhr liegt darüber und wird dort ausgeschnitten, wo das PNG deckend ist (braucht overlay_mask.h aus glass_clock_mask.html). Hinter der Uhr: Die Uhr liegt über dem Overlay. Davor: Das Overlay verdeckt die Uhr.",
+    "overlay_cut": "Uhr vom Overlay ausgeschnitten",
+    "overlay_behind": "Hinter der Uhr",
+    "overlay_front": "Vor der Uhr"
   }
 }

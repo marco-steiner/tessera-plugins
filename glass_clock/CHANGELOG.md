@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+- The overlay no longer hides the clock: it lies under the clock, and in the default position (Cut out) the digits are cut
+  out wherever the PNG is opaque, from a silhouette in overlay_mask.h (made by glass_clock_mask.html). Behind and In front
+  (the old way) remain as options. Why: the screen draws pictures as opaque RGB565, so a PNG's transparent parts arrive as
+  copies of the background, and the opacity setting only faded those copies over the clock.
+
 ## 0.2.0
 - New options Overlay address and Overlay opacity: a PNG from a web address (the host is named in permissions.network) lies over the clock.
 - New option Position: moves the date and the time together up or down.
