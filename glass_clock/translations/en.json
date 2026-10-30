@@ -17,8 +17,6 @@
     "dim_hint": "How much darker the picture gets, so the glass digits stay easy to read.",
     "date": "Date",
     "date_hint": "The day above the time.",
-    "seconds": "Blinking colon",
-    "seconds_hint": "The two dots between the hours and the minutes blink every second (digits in a row only).",
     "detail": "Detail",
     "detail_hint": "Only for Strokes. Full closes free ends with a bright border but needs the most memory. Light skips those caps. Minimal draws the body only. If the screen goes black or flickers, take a lighter setting.",
     "detail_light": "Light",

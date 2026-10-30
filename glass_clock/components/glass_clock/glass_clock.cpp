@@ -152,10 +152,11 @@ constexpr Glyph GLYPHS[10] = {{G0, 4}, {G1, 2}, {G2, 5}, {G3, 7}, {G4, 3}, {G5, 
 // PSRAM for as long as the firmware runs and reused by the next saver, so nothing that LVGL still holds is ever freed.
 constexpr int SLOTS = 4;
 constexpr int PAD = 2;  // pixels around a digit's box, for the soft edge
+constexpr int COLON_SLOT = SLOTS;  // the colon's picture lies after the four digits' pictures in the pool
 struct RasterPool {
-  uint8_t *pixels[SLOTS] = {};
-  size_t capacity[SLOTS] = {};
-  lv_image_dsc_t picture[SLOTS] = {};
+  uint8_t *pixels[SLOTS + 1] = {};
+  size_t capacity[SLOTS + 1] = {};
+  lv_image_dsc_t picture[SLOTS + 1] = {};
 };
 RasterPool &raster_pool() {
   static RasterPool pool;
@@ -202,7 +203,6 @@ class GlassSaver : public tessera::Saver {
     use_mask_ = overlay_on && std::strcmp(layer, "cut") == 0 && mask_data().data != nullptr && mask_data().w > 0 && mask_data().h > 0;
     glass_w_ = c.width;
     glass_h_ = c.height;
-    seconds_ = c.options["seconds"] | true;
     // How many layers an arc is drawn from: 5 (body, both edges, the caps of free ends), 3 (no caps) or 1 (body only).
     // Every layer is an LVGL object of its own, so fewer layers leave the screen more memory.
     // `mode`: "raster" draws each digit as one soft picture (a few objects, glass with a continuous bright edge), "strokes"
@@ -292,10 +292,11 @@ class GlassSaver : public tessera::Saver {
       lv_obj_set_style_text_align(date_, LV_TEXT_ALIGN_CENTER, 0);
       lv_obj_set_pos(date_, 0, top - date_gap - date_h);
     }
-    if (!stacked) {
-      // The colon: two glass dots between the pairs, at a third and two thirds of the digits' height.
-      const int dot = std::max(4, (int) std::lround(0.16f * unit_));
-      const int cx = digits_[1].x + (int) std::lround(unit_) + (int) std::lround(COLON * unit_ / 2);
+    // The colon: two glass dots between the pairs, at a third and two thirds of the digits' height.
+    const int dot = std::max(4, (int) std::lround(0.16f * unit_));
+    const int cx = digits_[1].x + (int) std::lround(unit_) + (int) std::lround(COLON * unit_ / 2);
+    if (!stacked && !raster_) {
+      // Strokes mode: the dots are objects of their own.
       for (int i = 0; i < 2; ++i) {
         dots_[i] = glass_block(c.parent);
         lv_obj_set_size(dots_[i], dot, dot);
@@ -303,10 +304,14 @@ class GlassSaver : public tessera::Saver {
                        top + (int) std::lround((i == 0 ? 0.34f : 0.66f) * glyph_h_ * unit_) - dot / 2);
       }
     }
-    if (raster_) create_images(c.parent);
-    else
+    if (raster_) {
+      create_images(c.parent);
+      // Smooth mode: the colon is a picture like the digits, cut out by the overlay's silhouette pixel by pixel.
+      if (!stacked) create_colon(c.parent, cx, dot);
+    } else {
       for (Digit &d : digits_) make_digit(c.parent, d);
-    // A colon dot that lies on the overlay's silhouette stays hidden (the dots are objects, not part of the digits' pictures).
+    }
+    // Strokes mode: a colon dot whose centre lies on the overlay's silhouette stays hidden (an object cannot be cut out).
     for (int i = 0; i < 2; ++i) {
       if (!dots_[i] || !use_mask_) continue;
       const float mx = lv_obj_get_x(dots_[i]) + lv_obj_get_width(dots_[i]) / 2.0f;
@@ -343,19 +348,6 @@ class GlassSaver : public tessera::Saver {
 
   void on_tick(uint32_t epoch) override {
     if (!epoch) return;  // the screen's clock is not set yet
-    // The colon blinks with the seconds: only its two small boxes are drawn again.
-    if (dots_[0] && seconds_) {
-      // A dot that the overlay's silhouette covers stays hidden; the others blink.
-      const int lead = dot_masked_[0] ? 1 : 0;
-      const bool hidden = lv_obj_has_flag(dots_[lead], LV_OBJ_FLAG_HIDDEN);
-      if (!(dot_masked_[0] && dot_masked_[1]) && (epoch % 2 == 0) == hidden) {
-        for (int i = 0; i < 2; ++i) {
-          if (dot_masked_[i]) continue;
-          if (epoch % 2 == 0) lv_obj_remove_flag(dots_[i], LV_OBJ_FLAG_HIDDEN);
-          else lv_obj_add_flag(dots_[i], LV_OBJ_FLAG_HIDDEN);
-        }
-      }
-    }
     if (epoch / 60 == minute_) return;
     minute_ = epoch / 60;
     // The time as the screen writes it ("14:05", or "2:05 PM" on 12 hours): the hours before the colon, two digits
@@ -429,7 +421,7 @@ class GlassSaver : public tessera::Saver {
   bool reserve_rasters() {
     RasterPool &pool = raster_pool();
     const size_t bytes = (size_t) picture_w() * picture_h();
-    for (int i = 0; i < SLOTS; ++i) {
+    for (int i = 0; i <= SLOTS; ++i) {  // the four digits and the colon (its picture is narrower, so the same size fits)
       if (pool.capacity[i] >= bytes) continue;
       void *p = pool.pixels[i] ? roomy::reallocate(pool.pixels[i], bytes) : roomy::allocate(bytes);
       if (!p) return false;
@@ -466,6 +458,57 @@ class GlassSaver : public tessera::Saver {
       lv_obj_set_pos(img, digits_[i].x - PAD, digits_[i].y - PAD);
       images_[i] = img;
     }
+  }
+
+  // The colon of the smooth mode: one narrow A8 picture with the two dots, drawn once. Same glass look as the digits
+  // (clear body, a little brighter at the top, bright edge) and cut out by the overlay's silhouette like them, so it
+  // lies on the same level as the time.
+  void create_colon(lv_obj_t *parent, int cx, int dot) {
+    RasterPool &pool = raster_pool();
+    const int w = dot + 2 * PAD, h = picture_h();
+    const int x0 = cx - w / 2, y0 = digits_[0].y - PAD;
+    uint8_t *px = pool.pixels[COLON_SLOT];
+    std::memset(px, 0, (size_t) w * h);
+    const float r = dot / 2.0f, centre_x = cx - x0;
+    const float body = body_opa_ / 255.0f, rim_f = rim_opa_ / 255.0f;
+    const float edge = 1.0f - (1.0f - body) * (1.0f - rim_f);
+    const float soft = std::max(1.0f, rim_ * 1.8f);
+    const float tall_px = glyph_h_ * unit_;
+    const float centre_y[2] = {PAD + 0.34f * tall_px, PAD + 0.66f * tall_px};
+    for (int y = 0; y < h; ++y) {
+      const float py = y + 0.5f;
+      const float lit = std::min(1.0f, std::max(0.0f, (py - PAD) / tall_px));
+      const float body_y = std::min(1.0f, body * (1.25f - 0.45f * lit));
+      for (int x = 0; x < w; ++x) {
+        const float pxf = x + 0.5f;
+        float best = 1e9f;
+        for (int i = 0; i < 2; ++i) best = std::min(best, std::hypot(pxf - centre_x, py - centre_y[i]));
+        const float cover = std::min(1.0f, std::max(0.0f, r + 0.5f - best));
+        if (cover <= 0) continue;
+        const float depth = std::max(0.0f, r - best);
+        float glow = std::max(0.0f, 1.0f - depth / soft);
+        glow *= glow;
+        float alpha = (body_y + (edge - body_y) * glow) * cover;
+        if (use_mask_) alpha *= 1.0f - mask_at(x0 + x + 0.5f, y0 + y + 0.5f);
+        px[(size_t) y * w + x] = (uint8_t) std::lround(std::min(1.0f, alpha) * 255.0f);
+      }
+    }
+    lv_image_dsc_t &dsc = pool.picture[COLON_SLOT];
+    dsc = {};
+    dsc.header.magic = LV_IMAGE_HEADER_MAGIC;
+    dsc.header.cf = LV_COLOR_FORMAT_A8;
+    dsc.header.w = w;
+    dsc.header.h = h;
+    dsc.header.stride = w;
+    dsc.data = px;
+    dsc.data_size = (size_t) w * h;
+    lv_obj_t *img = lv_image_create(parent);
+    lv_obj_remove_flag(img, LV_OBJ_FLAG_CLICKABLE);
+    lv_image_set_src(img, &dsc);
+    lv_obj_set_style_image_recolor(img, ui::color(theme::INK), 0);
+    lv_obj_set_style_image_recolor_opa(img, LV_OPA_COVER, 0);
+    lv_obj_set_pos(img, x0, y0);
+    colon_ = img;
   }
 
   // Draw a digit into its picture. Every pixel gets its distance to the nearest centre line of the digit's strokes (a
@@ -683,7 +726,7 @@ class GlassSaver : public tessera::Saver {
   int thick_ = 3, rim_ = 1, layers_ = 3;
   float unit_ = 50, stroke_ = STROKE, glyph_h_ = GLYPH_H, radius_ = RADIUS;
   const Glyph *glyphs_ = GLYPHS;
-  bool seconds_ = true, raster_ = false;
+  bool raster_ = false;
   lv_opa_t body_opa_ = LV_OPA_30, rim_opa_ = LV_OPA_70;
   uint32_t minute_ = 0;
   Digit digits_[4];
@@ -707,7 +750,7 @@ class GlassSaver : public tessera::Saver {
   bool use_mask_ = false, dot_masked_[2] = {false, false};
   int glass_w_ = 0, glass_h_ = 0;
   std::string overlay_url_;
-  lv_obj_t *overlay_{}, *place_{}, *shade_{}, *date_{}, *dots_[2]{}, *images_[SLOTS]{};
+  lv_obj_t *overlay_{}, *place_{}, *shade_{}, *date_{}, *dots_[2]{}, *colon_{}, *images_[SLOTS]{};
 };
 
 void GlassClock::set_mask(const uint8_t *data, int width, int height) {

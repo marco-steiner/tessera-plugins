@@ -1,6 +1,8 @@
 # Changelog
 
 ## 0.4.0
+- The colon no longer blinks (option Blinking colon removed). In Smooth mode it is a picture like the digits, so it lies on
+  the same level as the time and the overlay cuts it out pixel by pixel, instead of the dots standing in front of the overlay.
 - The overlay's silhouette is made automatically when the firmware is built: set `overlay_image` (web address or file) in
   plugin.yaml and the plugin reads the PNG's alpha channel itself (Pillow, which ESPHome brings along). overlay_mask.h and
   glass_clock_mask.html are no longer needed. New optional keys glass_width, glass_height, mask_width and mask_grow.

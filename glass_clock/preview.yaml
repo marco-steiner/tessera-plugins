@@ -14,4 +14,4 @@ savers:
   - saver: glass
     name: Stacked and darker
     entity: image.wallpaper
-    options: { layout: stacked, dim: 55, date: true, seconds: false }
+    options: { layout: stacked, dim: 55, date: true }

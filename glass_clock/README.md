@@ -15,7 +15,7 @@ this kind cannot blur what lies behind a part).
 3. Add the step **Glass clock** and choose an image entity (or a camera) in Home Assistant for it. The picture of that
    entity is the background.
 4. Put the step first in the order, so it shows before the other steps.
-5. Set the options under the step: the layout, how much the picture is dimmed, the date, the blinking colon.
+5. Set the options under the step: the layout, how much the picture is dimmed, the date.
 
 ## Two ways to draw the digits
 
@@ -67,6 +67,6 @@ fitted to this size like on the screen: filling it, centred), `mask_width` (defa
 width x height bytes) and `mask_grow` (cut the digits out that many pixels wider than the picture).
 
 The silhouette is part of the firmware, so build the screen again when the PNG changes. It works with the smooth drawing
-(not Strokes), and a colon dot that lies on the silhouette stays hidden. The date line is not cut out. To look at the
+(not Strokes), and a colon dot that lies on the silhouette stays hidden. The colon is cut out like the digits (in Strokes mode a dot is only hidden when its centre lies on the silhouette). The date line is not cut out. To look at the
 silhouette without building: `python components/glass_clock/mask_builder.py overlay.png` writes
 `overlay_mask_preview.png` (white = cut out).

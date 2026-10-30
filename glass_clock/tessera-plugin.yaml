@@ -82,4 +82,3 @@ savers:
           - { value: behind, label: overlay_behind }
           - { value: front, label: overlay_front }
       - { id: date, kind: toggle, default: true, label: date, hint: date_hint }
-      - { id: seconds, kind: toggle, default: true, label: seconds, hint: seconds_hint }
