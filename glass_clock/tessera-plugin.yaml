@@ -6,7 +6,7 @@
 # Two ways to draw them, an option: "raster" draws each digit as one soft picture in the ink's colour (A8, in PSRAM), "strokes"
 # builds it from LVGL arcs and bars.
 id: glass_clock
-version: 0.3.0
+version: 0.4.0
 api: "0.17"
 icon: clock-outline
 maintainer: glass-clock-author
@@ -16,7 +16,7 @@ topics: [time, photos]
 requires:
   esphome: 2026.6.2
 boards: any
-flash_kb: 8
+flash_kb: 64
 
 # The overlay picture is fetched from the person's own Home Assistant domain (its www folder, served under /local/).
 # Replace the host with your domain (no address, no port, nothing on the home network), and the privacy link with a page

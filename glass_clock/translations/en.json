@@ -35,7 +35,7 @@
     "overlay_url": "Overlay address",
     "overlay_url_hint": "Web address of a PNG shown over the clock, e.g. https://your-domain.org/local/overlay.png (a file in Home Assistant's www folder). The host must be listed in the manifest under permissions.network. Leave empty for no overlay. The picture may be 2 MB at most.",
     "overlay_layer": "Overlay position",
-    "overlay_layer_hint": "The screen cannot draw transparency, so the overlay is a flat picture. Cut out: the clock lies over it and is cut out wherever the PNG is opaque (needs overlay_mask.h from glass_clock_mask.html). Behind: the clock lies over the overlay. In front: the overlay covers the clock.",
+    "overlay_layer_hint": "The screen cannot draw transparency, so the overlay is a flat picture. Cut out: the clock lies over it and is cut out wherever the PNG is opaque (needs overlay_image in the plugin configuration, from which the cut-out is made when the firmware is built). Behind: the clock lies over the overlay. In front: the overlay covers the clock.",
     "overlay_cut": "Clock cut out by the overlay",
     "overlay_behind": "Behind the clock",
     "overlay_front": "In front of the clock"

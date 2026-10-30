@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+- The overlay's silhouette is made automatically when the firmware is built: set `overlay_image` (web address or file) in
+  plugin.yaml and the plugin reads the PNG's alpha channel itself (Pillow, which ESPHome brings along). overlay_mask.h and
+  glass_clock_mask.html are no longer needed. New optional keys glass_width, glass_height, mask_width and mask_grow.
+  The mask is now handed to the component with set_mask() instead of being a constant in a header.
+
 ## 0.3.0
 - The overlay no longer hides the clock: it lies under the clock, and in the default position (Cut out) the digits are cut
   out wherever the PNG is opaque, from a silhouette in overlay_mask.h (made by glass_clock_mask.html). Behind and In front

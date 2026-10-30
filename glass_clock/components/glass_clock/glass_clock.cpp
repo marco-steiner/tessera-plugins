@@ -1,5 +1,4 @@
 #include "glass_clock.h"
-#include "overlay_mask.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -163,6 +162,18 @@ RasterPool &raster_pool() {
   return pool;
 }
 
+// The overlay's silhouette: its alpha channel (255 where the PNG is opaque, 0 where it is transparent), as the glass shows
+// it (the picture covers the whole glass), width x height bytes, row by row. Made from the PNG by __init__.py while the
+// firmware is built and handed over by GlassClock::set_mask(). Empty (0 x 0) when the screen has no overlay_image.
+struct MaskData {
+  const uint8_t *data = nullptr;
+  int w = 0, h = 0;
+};
+MaskData &mask_data() {
+  static MaskData mask;
+  return mask;
+}
+
 }  // namespace
 
 class GlassSaver : public tessera::Saver {
@@ -183,12 +194,12 @@ class GlassSaver : public tessera::Saver {
     // PNG over what lies under it, so its transparent parts are copies of the background, and the picture can never let
     // the clock show through (and `overlay_opa` made those copies fade, which is what looked like a changed transparency).
     //   cut     under the clock, and the digits are cut out wherever the PNG is opaque (its silhouette, from
-    //           overlay_mask.h): the overlay looks as if it stood in front of the clock. The default.
+    //           the mask made from overlay_image at build time): the overlay looks as if it stood in front of the clock. The default.
     //   behind  under the clock, nothing cut out.
     //   front   over the clock as one opaque picture (the clock is hidden under it).
     const char *layer = c.options["overlay_layer"] | "cut";
     const bool overlay_front = std::strcmp(layer, "front") == 0;
-    use_mask_ = overlay_on && std::strcmp(layer, "cut") == 0 && MASK_W > 0 && MASK_H > 0;
+    use_mask_ = overlay_on && std::strcmp(layer, "cut") == 0 && mask_data().data != nullptr && mask_data().w > 0 && mask_data().h > 0;
     glass_w_ = c.width;
     glass_h_ = c.height;
     seconds_ = c.options["seconds"] | true;
@@ -676,17 +687,18 @@ class GlassSaver : public tessera::Saver {
   lv_opa_t body_opa_ = LV_OPA_30, rim_opa_ = LV_OPA_70;
   uint32_t minute_ = 0;
   Digit digits_[4];
-  // How much of the overlay's silhouette covers a point of the glass (in the glass's pixels), 0 to 1: the mask of
-  // overlay_mask.h, bilinear. 0 when there is no mask.
+  // How much of the overlay's silhouette covers a point of the glass (in the glass's pixels), 0 to 1: the mask made at
+  // build time, bilinear. 0 when there is no mask.
   float mask_at(float gx, float gy) const {
-    if (MASK_W <= 0 || MASK_H <= 0 || glass_w_ <= 0 || glass_h_ <= 0) return 0.0f;
-    const float u = gx / glass_w_ * MASK_W - 0.5f, v = gy / glass_h_ * MASK_H - 0.5f;
+    const MaskData &m = mask_data();
+    if (!m.data || m.w <= 0 || m.h <= 0 || glass_w_ <= 0 || glass_h_ <= 0) return 0.0f;
+    const float u = gx / glass_w_ * m.w - 0.5f, v = gy / glass_h_ * m.h - 0.5f;
     const int x0 = (int) std::floor(u), y0 = (int) std::floor(v);
     const float fx = u - x0, fy = v - y0;
-    auto at = [](int x, int y) {
-      x = std::max(0, std::min(MASK_W - 1, x));
-      y = std::max(0, std::min(MASK_H - 1, y));
-      return MASK[y * MASK_W + x] / 255.0f;
+    auto at = [&m](int x, int y) {
+      x = std::max(0, std::min(m.w - 1, x));
+      y = std::max(0, std::min(m.h - 1, y));
+      return m.data[y * m.w + x] / 255.0f;
     };
     return (at(x0, y0) * (1 - fx) + at(x0 + 1, y0) * fx) * (1 - fy) +
            (at(x0, y0 + 1) * (1 - fx) + at(x0 + 1, y0 + 1) * fx) * fy;
@@ -697,6 +709,13 @@ class GlassSaver : public tessera::Saver {
   std::string overlay_url_;
   lv_obj_t *overlay_{}, *place_{}, *shade_{}, *date_{}, *dots_[2]{}, *images_[SLOTS]{};
 };
+
+void GlassClock::set_mask(const uint8_t *data, int width, int height) {
+  MaskData &m = mask_data();
+  m.data = data;
+  m.w = width;
+  m.h = height;
+}
 
 void GlassClock::setup() {
   // The id is the saver's id in the manifest, and its step must be the manifest's (own).

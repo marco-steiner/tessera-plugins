@@ -53,12 +53,20 @@ The screen draws every picture as opaque pixels (RGB565, no alpha). Tessera's ap
 before it sends it, so the PNG's transparent parts arrive as copies of the background. That is why a picture laid over
 the clock hid it, and why its opacity only faded those copies over the clock, never "the transparent parts".
 
-So the overlay now lies under the clock, and the plugin cuts the digits out where the PNG is opaque:
+So the overlay lies under the clock, and the plugin cuts the digits out where the PNG is opaque. The cut-out (a
+silhouette of the PNG) is made **automatically while the firmware is built**:
 
-1. Open `glass_clock_mask.html` in a browser, drop your overlay PNG in, and set the glass size of your screen (480 x 480
-   for the Guition 4).
-2. Save the result as `overlay_mask.h` in `components/glass_clock/` and build the screen again.
+1. In `plugin.yaml` set `overlay_image` to your overlay PNG: a web address (for example
+   `https://<your domain>/local/overlay.png`) or a file name (in the screen's config folder or in
+   `components/glass_clock/`). Use the same picture as the app option **Overlay address**.
+2. Build the screen again. The build log says `glass_clock: mask 240x240 (56 KB) from ... % opaque`.
 3. Set **Overlay position** to *Clock cut out by the overlay* (the default).
 
-The mask is part of the firmware, so make a new one whenever the PNG changes. It works with the smooth drawing (not
-Strokes), and a colon dot that lies on the silhouette stays hidden. The date line is not cut out.
+Optional keys next to `overlay_image`: `glass_width` / `glass_height` (default 480 x 480, the Guition 4; the picture is
+fitted to this size like on the screen: filling it, centred), `mask_width` (default 240; the flash it takes is
+width x height bytes) and `mask_grow` (cut the digits out that many pixels wider than the picture).
+
+The silhouette is part of the firmware, so build the screen again when the PNG changes. It works with the smooth drawing
+(not Strokes), and a colon dot that lies on the silhouette stays hidden. The date line is not cut out. To look at the
+silhouette without building: `python components/glass_clock/mask_builder.py overlay.png` writes
+`overlay_mask_preview.png` (white = cut out).

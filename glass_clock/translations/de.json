@@ -35,7 +35,7 @@
     "overlay_url": "Overlay-Adresse",
     "overlay_url_hint": "Web-Adresse eines PNG, das über der Uhr liegt, z. B. https://deine-domain.de/local/overlay.png (Datei im www-Ordner von Home Assistant). Der Host muss im Manifest unter permissions.network stehen. Leer lassen für kein Overlay. Das Bild darf höchstens 2 MB groß sein.",
     "overlay_layer": "Position des Overlays",
-    "overlay_layer_hint": "Der Screen kann keine Transparenz zeichnen, das Overlay ist ein flaches Bild. Ausgeschnitten: Die Uhr liegt darüber und wird dort ausgeschnitten, wo das PNG deckend ist (braucht overlay_mask.h aus glass_clock_mask.html). Hinter der Uhr: Die Uhr liegt über dem Overlay. Davor: Das Overlay verdeckt die Uhr.",
+    "overlay_layer_hint": "Der Screen kann keine Transparenz zeichnen, das Overlay ist ein flaches Bild. Ausgeschnitten: Die Uhr liegt darüber und wird dort ausgeschnitten, wo das PNG deckend ist (braucht overlay_image in der Plugin-Konfiguration, daraus entsteht der Ausschnitt beim Bauen der Firmware). Hinter der Uhr: Die Uhr liegt über dem Overlay. Davor: Das Overlay verdeckt die Uhr.",
     "overlay_cut": "Uhr vom Overlay ausgeschnitten",
     "overlay_behind": "Hinter der Uhr",
     "overlay_front": "Vor der Uhr"
