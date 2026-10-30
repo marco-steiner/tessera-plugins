@@ -42,8 +42,9 @@ the request (the app's address and the time). Nothing else is sent. Without an o
   wallpaper, say) and the screensaver changes with it. A screen without picture memory (the CYD) shows the clock on black.
 - Automatic layout stacks the hours over the minutes on a square or tall screen and puts the four digits in a row on a
   wide one.
-- The digits stand on the same place for hours, so the screen moves the whole saver a millimetre every minute against
-  burn-in. A 12-hour screen shows AM or PM beside the date.
+- Nothing moves: the digits, the colon and the background picture stay on the same place (the manifest says `moves: true`,
+  so the screen does not shift the saver a millimetre every minute against burn-in). Keep that in mind on OLED screens.
+  A 12-hour screen shows AM or PM beside the date.
 - It uses nothing outside the screen but the picture the app fetches from Home Assistant.
 
 

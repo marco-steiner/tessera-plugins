@@ -1,6 +1,10 @@
 # Changelog
 
 ## 0.4.0
+- Nothing moves any more: the saver says `moves: true` in the manifest, so the screen no longer shifts the whole saver
+  (clock and background picture) a millimetre every minute. No protection against burn-in then.
+- The colon stands exactly in the middle of the screen, and the digits are laid out as mirror images around it. Each digit
+  keeps its slot for good (a blank hour digit on 12 hours leaves its place empty).
 - The colon no longer blinks (option Blinking colon removed). In Smooth mode it is a picture like the digits, so it lies on
   the same level as the time and the overlay cuts it out pixel by pixel, instead of the dots standing in front of the overlay.
 - The overlay's silhouette is made automatically when the firmware is built: set `overlay_image` (web address or file) in

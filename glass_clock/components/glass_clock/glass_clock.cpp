@@ -15,8 +15,8 @@ namespace ui = tessera::ui;
 //
 // A plugin has no font of its own, so the digits are drawn from rounded strokes: bars (a block with a bright border and
 // a clear body) and arcs (the body, and a thin bright arc along each edge). Everything is made once in show(); a new
-// minute only moves and shows the strokes of the new digits (never makes or deletes one). The screen moves the whole
-// saver a millimetre every minute, so nothing stands still on the same pixels.
+// minute only moves and shows the strokes of the new digits (never makes or deletes one). The manifest says `moves: true`,
+// so the screen does not shift the saver: every part stays exactly where it is drawn.
 namespace {
 
 static const char *const TAG = "glass_clock";
@@ -273,12 +273,15 @@ class GlassSaver : public tessera::Saver {
         digits_[0].y = digits_[1].y = top;
         digits_[2].y = digits_[3].y = top + row;
       } else {
-        const int x0 = (c.width - (int) std::lround((4 + 2 * IN + COLON) * unit_)) / 2;
-        const int in = (int) std::lround((1 + IN) * unit_), colon = (int) std::lround((1 + COLON) * unit_);
-        digits_[0].x = x0;
-        digits_[1].x = x0 + in;
-        digits_[2].x = x0 + in + colon;
-        digits_[3].x = x0 + 2 * in + colon;
+        // Built outwards from the colon, which stands exactly in the middle of the screen: the two pairs of digits are
+        // mirror images of each other, and a digit slot never moves (a blank hour digit, as on 12 hours, keeps its place).
+        const int mid = c.width / 2;
+        const int dw = (int) std::lround(unit_), half_gap = (int) std::lround(COLON * unit_ / 2);
+        const int in = (int) std::lround((1 + IN) * unit_);
+        digits_[1].x = mid - half_gap - dw;
+        digits_[2].x = mid + half_gap;
+        digits_[0].x = digits_[1].x - in;
+        digits_[3].x = digits_[2].x + in;
         for (Digit &d : digits_) d.y = top;
       }
     };
@@ -294,7 +297,7 @@ class GlassSaver : public tessera::Saver {
     }
     // The colon: two glass dots between the pairs, at a third and two thirds of the digits' height.
     const int dot = std::max(4, (int) std::lround(0.16f * unit_));
-    const int cx = digits_[1].x + (int) std::lround(unit_) + (int) std::lround(COLON * unit_ / 2);
+    const int cx = c.width / 2;  // the colon: exactly the middle of the screen
     if (!stacked && !raster_) {
       // Strokes mode: the dots are objects of their own.
       for (int i = 0; i < 2; ++i) {

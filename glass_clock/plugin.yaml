@@ -5,7 +5,7 @@ glass_clock:
   # channel by itself (no overlay_mask.h, no extra tool). Use the same picture as the option "Overlay address" in the app.
   # A web address (the build needs to reach it) or a file name (in the screen's config folder or in components/glass_clock/).
   # Without this line nothing is cut out.
-  overlay_image: https://smarthomebude.eu/local/tessera/clock-overlay-1a.png
+  overlay_image: https://smarthomebude.eu/local/tessera/clock-overlay-1b.png
   #
   # Optional (defaults shown):
   glass_width: 480    # the glass the picture is fitted to, in pixels (480 x 480 for the Guition 4)

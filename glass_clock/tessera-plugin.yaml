@@ -33,6 +33,9 @@ savers:
     name: saver_name
     icon: clock-outline
     step: own
+    # The screen no longer moves the saver (picture and clock) a millimetre every minute against burn-in: everything stays
+    # where it is drawn. Say moves: true only when the saver really moves itself; this one deliberately does not.
+    moves: true
     # About 60 LVGL objects: four digits of up to thirteen parts each (an arc has five layers: body, two edges, two caps), the colon, the shade, the
     # picture's place and the date. The arcs are heavier than a label.
     memory: 14000
