@@ -4,7 +4,9 @@ A screensaver clock in the style of the iPhone's lock screen: tall, thin digits 
 choice from Home Assistant, with the date above them.
 
 The digits are drawn from rounded strokes with a clear body and a bright edge, because a plugin cannot bring a font of
-its own. Over a colourful, soft picture they look like glass; they are a close likeness, not real glass (a screen of
+its own. The plugin calculates each digit into a small picture (one byte a pixel, in PSRAM) and shows it as one object,
+so the edge is one bright line all round. It needs a board with PSRAM; without room for the pictures the clock stays empty
+(the date and the background still show). Over a colourful, soft picture they look like glass; they are a close likeness, not real glass (a screen of
 this kind cannot blur what lies behind a part).
 
 ## Set up
@@ -15,15 +17,13 @@ this kind cannot blur what lies behind a part).
 3. Add the step **Glass clock** and choose an image entity (or a camera) in Home Assistant for it. The picture of that
    entity is the background.
 4. Put the step first in the order, so it shows before the other steps.
-5. Set the options under the step: the layout, how much the picture is dimmed, the date.
+5. Set the options under the step: the layout, the digit style, how much the picture is dimmed, the date.
 
-## Two ways to draw the digits
+## Digit style
 
-- **Smooth** (default): the plugin calculates each digit into a small picture (one byte a pixel, in PSRAM) and shows it
-  as one object. The edge of the digit is one bright line all round, with no brighter spots where strokes meet. It needs a
-  board with PSRAM; without room for the pictures it uses Strokes by itself.
-- **Strokes**: every digit is built from LVGL arcs and bars, about sixty objects. Use it if Smooth does not suit your
-  screen. The option Detail sets how many layers an arc has (Light, Full or Minimal).
+The option **Digit style** picks one of three looks for the digits: **Glass** (the default, as before), **Style 2** and
+**Style 3**. Style 2 has heavier, shorter digits. Style 3 is prepared in
+`glass_clock.cpp` (`draw_style3`, `STYLES[2]`) and draws like glass until its code is added.
 
 ## Overlay picture
 
@@ -67,7 +67,6 @@ Optional keys next to `overlay_image`: `glass_width` / `glass_height` (default 4
 fitted to this size like on the screen: filling it, centred), `mask_width` (default 240; the flash it takes is
 width x height bytes) and `mask_grow` (cut the digits out that many pixels wider than the picture).
 
-The silhouette is part of the firmware, so build the screen again when the PNG changes. It works with the smooth drawing
-(not Strokes), and a colon dot that lies on the silhouette stays hidden. The colon is cut out like the digits (in Strokes mode a dot is only hidden when its centre lies on the silhouette). The date line is not cut out. To look at the
+The silhouette is part of the firmware, so build the screen again when the PNG changes. The colon is cut out like the digits. The date line is not cut out. To look at the
 silhouette without building: `python components/glass_clock/mask_builder.py overlay.png` writes
 `overlay_mask_preview.png` (white = cut out).

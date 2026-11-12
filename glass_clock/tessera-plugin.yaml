@@ -1,12 +1,12 @@
 # Glass clock: a screensaver of its own (plugin API 0.14 and later, docs/FIRMWARE_API.md "A screensaver"). The time in
 # tall, thin digits of frosted glass over a picture from an image entity of Home Assistant, the way the iPhone's lock
-# screen shows it. The digits are drawn from rounded strokes (arcs and bars) with a clear body and a bright rim, since
-# a plugin has no font of its own. docs/MANIFEST.md has every field.
+# screen shows it. The digits are drawn from rounded strokes with a clear body and a bright rim, since a plugin has no
+# font of its own. docs/MANIFEST.md has every field.
 #
-# Two ways to draw them, an option: "raster" draws each digit as one soft picture in the ink's colour (A8, in PSRAM), "strokes"
-# builds it from LVGL arcs and bars.
+# Each digit is one soft picture in the ink's colour (A8, in PSRAM), calculated from rounded strokes. An option picks one of
+# three digit styles.
 id: glass_clock
-version: 0.4.0
+version: 0.5.0
 api: "0.17"
 icon: clock-outline
 maintainer: glass-clock-author
@@ -36,9 +36,8 @@ savers:
     # The screen no longer moves the saver (picture and clock) a millimetre every minute against burn-in: everything stays
     # where it is drawn. Say moves: true only when the saver really moves itself; this one deliberately does not.
     #moves: true
-    # About 60 LVGL objects: four digits of up to thirteen parts each (an arc has five layers: body, two edges, two caps), the colon, the shade, the
-    # picture's place and the date. The arcs are heavier than a label.
-    memory: 14000
+    # About 10 LVGL objects: four digit pictures, the colon picture, the shade, the picture's place, the overlay and the date.
+    memory: 4000
     # Two places: the picture of the chosen entity under everything, and the overlay over the clock (from the host in permissions.network).
     pictures: 2
     domains: [image, camera]
@@ -54,23 +53,15 @@ savers:
           - { value: auto, label: layout_auto }
           - { value: side, label: layout_side }
           - { value: stacked, label: layout_stacked }
-      - id: mode
+      - id: digit_style
         kind: choice
-        label: mode
-        hint: mode_hint
-        default: raster
+        label: digit_style
+        hint: digit_style_hint
+        default: glass
         choices:
-          - { value: raster, label: mode_raster }
-          - { value: strokes, label: mode_strokes }
-      - id: detail
-        kind: choice
-        label: detail
-        hint: detail_hint
-        default: light
-        choices:
-          - { value: light, label: detail_light }
-          - { value: full, label: detail_full }
-          - { value: minimal, label: detail_minimal }
+          - { value: glass, label: digit_style_glass }
+          - { value: style2, label: digit_style_2 }
+          - { value: style3, label: digit_style_3 }
       - { id: dim, kind: number, min: 0, max: 80, step: 5, unit: "%", default: 35, label: dim, hint: dim_hint }
       - { id: offset, kind: number, min: -100, max: 100, step: 5, unit: "%", default: 0, label: offset, hint: offset_hint }
       - { id: overlay_url, kind: text, default: "", label: overlay_url, hint: overlay_url_hint }

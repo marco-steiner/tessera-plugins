@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+- The Strokes drawing is gone, with its options Drawing and Detail, the arcs-and-bars objects and the first digit shape.
+  Only the smooth drawing remains (each digit one A8 picture). Without PSRAM the digits are no longer drawn by strokes: the
+  clock stays empty, the date and the background still show.
+- New option Digit style (glass, style 2, style 3): three looks for the digits. Glass is the
+  default and looks exactly as before. Style 2 is the heavier digit (2 tall, stroke 0.28, own gaps). Style 3 is in place
+  but still draws like glass until its code is added (draw_style3 and STYLES[2] in glass_clock.cpp).
+
 ## 0.4.0
 - Nothing moves any more: the saver says `moves: true` in the manifest, so the screen no longer shifts the whole saver
   (clock and background picture) a millimetre every minute. No protection against burn-in then.

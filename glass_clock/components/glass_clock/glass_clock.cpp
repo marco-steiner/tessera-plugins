@@ -13,142 +13,164 @@ namespace ui = tessera::ui;
 // A step of the screensaver of its own (plugin API 0.17): the time in tall, thin digits of frosted glass over the
 // picture of an image entity, as the iPhone's lock screen draws it.
 //
-// A plugin has no font of its own, so the digits are drawn from rounded strokes: bars (a block with a bright border and
-// a clear body) and arcs (the body, and a thin bright arc along each edge). Everything is made once in show(); a new
-// minute only moves and shows the strokes of the new digits (never makes or deletes one). The manifest says `moves: true`,
-// so the screen does not shift the saver: every part stays exactly where it is drawn.
+// A plugin has no font of its own, so each digit is calculated from rounded strokes (bars and arcs) into one soft A8 picture
+// in PSRAM. Everything is made once in show(); a new minute only draws the new digits into their pictures. The manifest
+// says `moves: true`, so the screen does not shift the saver: every part stays exactly where it is drawn.
 namespace {
 
 static const char *const TAG = "glass_clock";
 
-// The shape of a digit, in units of its width: 1 wide, 1.83 tall, a stroke 0.17 thick. A bowl is a circle whose centre
-// line has the radius RADIUS; the two bowls of an 8 touch in the middle.
-constexpr float GLYPH_H = 1.83f;
-constexpr float STROKE = 0.17f;
-constexpr float RADIUS = (1.0f - STROKE) / 2;
-constexpr float LEFT = STROKE / 2, RIGHT = 1.0f - STROKE / 2, TOP = STROKE / 2, BOTTOM = GLYPH_H - STROKE / 2;
-constexpr float MID = 0.5f, UPPER = STROKE / 2 + RADIUS, LOWER = GLYPH_H - STROKE / 2 - RADIUS;
-
-// A bar runs from (a, b) to (c, d) along its centre line. An arc is the part of a circle around (a, b) from the angle c
-// to the angle d, clockwise, in degrees as LVGL counts them (0 east, 90 south).
-//
-// `open` says which ends of a stroke are free (not hidden inside another stroke): a free end is closed by a round cap
-// with its own bright border. An arc has OPEN_START (the end at the angle c) and OPEN_END (the end at the angle d); a
-// bar is a pill with a border all round when `open` is not 0, and has flat ends with a border on its two long sides
-// when it is 0 (its ends lie in other strokes).
+// The shape of a digit, in units of its width (1 wide, H tall, a stroke T thick). A digit is a set of segments: a bar runs
+// from (a, b) to (c, d) along its centre line; an arc is the part of a circle around (a, b) from the angle c to the angle d,
+// clockwise, in degrees as LVGL counts them (0 east, 90 south). A bowl is two arcs and two bars, so it can be as long as it
+// needs to be; the two bowls of the 8 touch in the middle. EXT is how far the straight sides of a bowl run, UP2 and LOW2
+// the centres of the arcs that close the upper and the lower bowl.
 enum Kind : uint8_t { BAR, ARC };
-enum Open : uint8_t { CLOSED = 0, OPEN_START = 1, OPEN_END = 2, OPEN_BOTH = 3 };
 struct Seg {
   Kind kind;
   float a, b, c, d;
-  uint8_t open;
 };
-
-constexpr Seg G0[] = {{ARC, MID, UPPER, 180, 360, CLOSED},
-                      {ARC, MID, LOWER, 0, 180, CLOSED},
-                      {BAR, LEFT, UPPER, LEFT, LOWER, CLOSED},
-                      {BAR, RIGHT, UPPER, RIGHT, LOWER, CLOSED}};
-constexpr Seg G1[] = {{BAR, 0.68f, TOP, 0.68f, BOTTOM, OPEN_BOTH},
-                      {BAR, 0.30f, TOP, 0.68f, TOP, OPEN_BOTH}};
-constexpr Seg G2[] = {{ARC, MID, UPPER-0.005f, 180, 450, OPEN_START},
-                      {ARC, MID, LOWER, 90, 270, CLOSED},
-                      {BAR, 0.50f, BOTTOM, RIGHT, BOTTOM, OPEN_BOTH}};
-constexpr Seg G3[] = {{ARC, MID, UPPER, 200, 450, OPEN_BOTH},
-                      {ARC, MID, LOWER, 270, 520, OPEN_BOTH}};
-constexpr Seg G4[] = {{BAR, 0.75f, TOP, 0.75f, BOTTOM, OPEN_BOTH},
-                      {BAR, LEFT, TOP, LEFT, 0.95f, OPEN_BOTH},
-                      {BAR, LEFT, 0.95f, RIGHT, 0.95f, OPEN_BOTH}};
-constexpr Seg G5[] = {{BAR, 0.15f, TOP, 0.15f, 1.1f, OPEN_BOTH},
-                      {BAR, 0.15f, TOP, RIGHT, TOP, OPEN_BOTH},
-                      {ARC, MID, LOWER, 215, 510, OPEN_BOTH}};
-constexpr Seg G6[] = {{ARC, MID, LOWER, 0, 360, CLOSED},
-                      {BAR, LEFT, UPPER, LEFT, LOWER, CLOSED},
-                      {ARC, MID, UPPER, 180, 330, OPEN_END}};
-constexpr Seg G7[] = {{BAR, LEFT, TOP, RIGHT, TOP, OPEN_BOTH},
-                      {BAR, 0.91f, TOP, 0.91f, BOTTOM, OPEN_BOTH}};
-constexpr Seg G8[] = {{ARC, MID, UPPER, 0, 360, CLOSED},
-                      {ARC, MID, LOWER, 0, 360, CLOSED}};
-constexpr Seg G9[] = {{ARC, MID, UPPER, 0, 360, CLOSED},
-                      {BAR, RIGHT, UPPER, RIGHT, LOWER, CLOSED},
-                      {ARC, MID, LOWER, 0, 150, OPEN_END}};
-
 struct Glyph {
   const Seg *segs;
   uint8_t count;
 };
-constexpr Glyph GLYPHS[10] = {{G0, 4}, {G1, 2}, {G2, 3}, {G3, 2}, {G4, 3}, {G5, 3}, {G6, 3}, {G7, 2}, {G8, 2}, {G9, 3}};
 
-// What one digit slot holds: room for the most any digit needs (two arcs of five layers, three bars).
-constexpr int ARC_SLOTS = 2, BAR_SLOTS = 3, ARC_LAYERS = 5;
-struct Digit {
-  lv_obj_t *arcs[ARC_SLOTS][ARC_LAYERS]{};  // the body, the rim on each edge, and two layers for the caps of free ends
-  lv_obj_t *bars[BAR_SLOTS]{};
-  char shown = 0;    // '0' to '9', ' ' for none, 0 before the first time
-  int x = 0, y = 0;  // top left, in the glass's pixels
-};
-
-// The shape of the smooth mode: much taller and thinner digits with oval bowls. A bowl is two arcs and two bars, so it can
-// be as long as it needs to be; the two bowls of the 8 touch in the middle. Same units as above (1 wide). EXT is how far
-// the straight sides of a bowl run, UP2 and LOW2 the centres of the arcs that close the upper and the lower bowl.
-namespace tall {
+namespace glass {
 constexpr float H = 3.0f, T = 0.15f, R = (1.0f - T) / 2;
 constexpr float LEFT = T / 2, RIGHT = 1.0f - T / 2, TOP = T / 2, BOTTOM = H - T / 2, MID = 0.5f;
 constexpr float UPPER = T / 2 + R, LOWER = H - T / 2 - R;
 constexpr float EXT = H / 2 + T / 2 - 1.0f;
 constexpr float UP2 = UPPER + EXT, LOW2 = LOWER - EXT;
 
-constexpr Seg G0[] = {{ARC, MID, UPPER, 180, 360, CLOSED},
-                      {ARC, MID, LOWER, 0, 180, CLOSED},
-                      {BAR, LEFT, UPPER, LEFT, LOWER, CLOSED},
-                      {BAR, RIGHT, UPPER, RIGHT, LOWER, CLOSED}};
-constexpr Seg G1[] = {{BAR, 0.72f, TOP, 0.72f, BOTTOM, OPEN_BOTH},
-                      {BAR, 0.16f, 0.42f, 0.72f, TOP, OPEN_BOTH}};
-constexpr Seg G2[] = {{ARC, MID, UPPER, 180, 360, OPEN_START},
-                      {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
-                      {ARC, MID, UP2, 0, 25, CLOSED},
-                      {BAR, 0.894f, UP2+0.184f, LEFT, BOTTOM, CLOSED},
-                      {BAR, LEFT, BOTTOM, RIGHT, BOTTOM, OPEN_BOTH}};
-constexpr Seg G3[] = {{ARC, MID, UPPER, 200, 360, OPEN_START},
-                      {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
-                      {ARC, MID, UP2, 0, 90, CLOSED},
-                      {BAR, 0.30f, H/2, MID, H/2, OPEN_BOTH},
-                      {ARC, MID, LOW2, 270, 360, CLOSED},
-                      {BAR, RIGHT, LOW2, RIGHT, LOWER, CLOSED},
-                      {ARC, MID, LOWER, 0, 160, OPEN_END}};
-constexpr Seg G4[] = {{BAR, 0.74f, TOP, 0.74f, BOTTOM, OPEN_BOTH},
-                      {BAR, 0.74f, TOP, LEFT, 0.70f*H, OPEN_BOTH},
-                      {BAR, LEFT, 0.70f*H, RIGHT, 0.70f*H, OPEN_BOTH}};
-constexpr Seg G5[] = {{BAR, 0.144f, TOP, 0.144f, 1.46f, OPEN_BOTH},
-                      {BAR, 0.144f, TOP, RIGHT, TOP, OPEN_BOTH},
-                      {ARC, MID, 1.7f, 215, 360, CLOSED},
-                      {BAR, RIGHT, 1.7f, RIGHT, LOWER, CLOSED},
-                      {ARC, MID, LOWER, 0, 155, OPEN_END}};
-constexpr Seg G6[] = {{ARC, MID, 1.7f, 180, 360, CLOSED},
-                      {ARC, MID, LOWER, 0, 180, CLOSED},
-                      {BAR, LEFT, LOW2, LEFT, LOWER, CLOSED},
-                      {BAR, RIGHT, 1.7f, RIGHT, LOWER, CLOSED},
-                      {BAR, LEFT, UPPER, LEFT, LOW2, CLOSED},
-                      {ARC, MID, UPPER, 180, 335, OPEN_END}};
-constexpr Seg G7[] = {{BAR, LEFT, TOP, RIGHT, TOP, OPEN_BOTH},
-                      {BAR, RIGHT, TOP, 0.28f, BOTTOM, OPEN_BOTH}};
-constexpr Seg G8[] = {{ARC, MID, UPPER, 180, 360, CLOSED},
-                      {ARC, MID, UP2, 0, 180, CLOSED},
-                      {BAR, LEFT, UPPER, LEFT, UP2, CLOSED},
-                      {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
-                      {ARC, MID, LOW2, 180, 360, CLOSED},
-                      {ARC, MID, LOWER, 0, 180, CLOSED},
-                      {BAR, LEFT, LOW2, LEFT, LOWER, CLOSED},
-                      {BAR, RIGHT, LOW2, RIGHT, LOWER, CLOSED}};
-constexpr Seg G9[] = {{ARC, MID, UPPER, 180, 360, CLOSED},
-                      {ARC, MID, 1.3f, 0, 180, CLOSED},
-                      {BAR, LEFT, 0.5f, LEFT, 1.3f, CLOSED},
-                      {BAR, RIGHT, UPPER, RIGHT, UP2, CLOSED},
-                      {BAR, RIGHT, UP2, RIGHT, LOWER, CLOSED},
-                      {ARC, MID, LOWER, 0, 155, OPEN_END}};
+constexpr Seg G0[] = {{ARC, MID, UPPER, 180, 360},
+                      {ARC, MID, LOWER, 0, 180},
+                      {BAR, LEFT, UPPER, LEFT, LOWER},
+                      {BAR, RIGHT, UPPER, RIGHT, LOWER}};
+constexpr Seg G1[] = {{BAR, 0.72f, TOP, 0.72f, BOTTOM},
+                      {BAR, 0.16f, 0.42f, 0.72f, TOP}};
+constexpr Seg G2[] = {{ARC, MID, UPPER, 180, 360},
+                      {BAR, RIGHT, UPPER, RIGHT, UP2},
+                      {ARC, MID, UP2, 0, 25},
+                      {BAR, 0.894f, UP2+0.184f, LEFT, BOTTOM},
+                      {BAR, LEFT, BOTTOM, RIGHT, BOTTOM}};
+constexpr Seg G3[] = {{ARC, MID, UPPER, 200, 360},
+                      {BAR, RIGHT, UPPER, RIGHT, UP2},
+                      {ARC, MID, UP2, 0, 90},
+                      {BAR, 0.30f, H/2, MID, H/2},
+                      {ARC, MID, LOW2, 270, 360},
+                      {BAR, RIGHT, LOW2, RIGHT, LOWER},
+                      {ARC, MID, LOWER, 0, 160}};
+constexpr Seg G4[] = {{BAR, 0.74f, TOP, 0.74f, BOTTOM},
+                      {BAR, 0.74f, TOP, LEFT, 0.70f*H},
+                      {BAR, LEFT, 0.70f*H, RIGHT, 0.70f*H}};
+constexpr Seg G5[] = {{BAR, 0.144f, TOP, 0.144f, 1.46f},
+                      {BAR, 0.144f, TOP, RIGHT, TOP},
+                      {ARC, MID, 1.7f, 215, 360},
+                      {BAR, RIGHT, 1.7f, RIGHT, LOWER},
+                      {ARC, MID, LOWER, 0, 155}};
+constexpr Seg G6[] = {{ARC, MID, 1.7f, 180, 360},
+                      {ARC, MID, LOWER, 0, 180},
+                      {BAR, LEFT, LOW2, LEFT, LOWER},
+                      {BAR, RIGHT, 1.7f, RIGHT, LOWER},
+                      {BAR, LEFT, UPPER, LEFT, LOW2},
+                      {ARC, MID, UPPER, 180, 335}};
+constexpr Seg G7[] = {{BAR, LEFT, TOP, RIGHT, TOP},
+                      {BAR, RIGHT, TOP, 0.28f, BOTTOM}};
+constexpr Seg G8[] = {{ARC, MID, UPPER, 180, 360},
+                      {ARC, MID, UP2, 0, 180},
+                      {BAR, LEFT, UPPER, LEFT, UP2},
+                      {BAR, RIGHT, UPPER, RIGHT, UP2},
+                      {ARC, MID, LOW2, 180, 360},
+                      {ARC, MID, LOWER, 0, 180},
+                      {BAR, LEFT, LOW2, LEFT, LOWER},
+                      {BAR, RIGHT, LOW2, RIGHT, LOWER}};
+constexpr Seg G9[] = {{ARC, MID, UPPER, 180, 360},
+                      {ARC, MID, 1.3f, 0, 180},
+                      {BAR, LEFT, 0.5f, LEFT, 1.3f},
+                      {BAR, RIGHT, UPPER, RIGHT, UP2},
+                      {BAR, RIGHT, UP2, RIGHT, LOWER},
+                      {ARC, MID, LOWER, 0, 155}};
 constexpr Glyph GLYPHS[10] = {{G0, 4}, {G1, 2}, {G2, 5}, {G3, 7}, {G4, 3}, {G5, 5}, {G6, 6}, {G7, 2}, {G8, 8}, {G9, 6}};
-}  // namespace tall
+}  // namespace glass
 
-// The pictures of the smooth mode (A8, one byte a pixel: how much of the ink shows), one per digit slot. They are kept in
+// Style 2: heavier digits, 2 tall.
+namespace bold {
+constexpr float H = 2.0f, T = 0.28f, R = (1.0f - T) / 2;
+constexpr float LEFT = T / 2, RIGHT = 1.0f - T / 2, TOP = T / 2, BOTTOM = H - T / 2, MID = 0.5f;
+constexpr float UPPER = T / 2 + R, LOWER = H - T / 2 - R;
+constexpr float EXT = H / 2 + T / 2 - 1.0f;
+constexpr float UP2 = UPPER + EXT, LOW2 = LOWER - EXT;
+
+constexpr Seg G0[] = {{ARC, MID, UPPER, 180, 360},
+                      {ARC, MID, LOWER, 0, 180},
+                      {BAR, LEFT, UPPER, LEFT, LOWER},
+                      {BAR, RIGHT, UPPER, RIGHT, LOWER}};
+constexpr Seg G1[] = {{BAR, 0.72f, TOP, 0.72f, BOTTOM},
+                      {BAR, 0.16f, 0.42f, 0.72f, TOP}};
+constexpr Seg G2[] = {{ARC, MID, UPPER, 180, 360},
+                      {BAR, RIGHT, UPPER, RIGHT, UP2},
+                      {ARC, MID, UP2, 0, 25},
+                      {BAR, 0.810f, UP2+0.180f, 0.14f, 1.87f},
+                      {BAR, LEFT, BOTTOM, RIGHT, BOTTOM}};
+constexpr Seg G3[] = {{ARC, MID, UPPER, 200, 360},
+                      {BAR, RIGHT, UPPER, RIGHT, UP2},
+                      {ARC, MID, UP2, 0, 90},
+                      {BAR, 0.30f, H/2, MID, H/2},
+                      {ARC, MID, LOW2, 270, 360},
+                      {BAR, RIGHT, LOW2, RIGHT, LOWER},
+                      {ARC, MID, LOWER, 0, 160}};
+constexpr Seg G4[] = {{BAR, 0.74f, TOP, 0.74f, BOTTOM},
+                      {BAR, 0.74f, TOP, LEFT, 0.65f*H},
+                      {BAR, LEFT, 0.65f*H, RIGHT, 0.65f*H}};
+constexpr Seg G5[] = {{BAR, 0.144f, TOP, 0.144f, 1.0f},
+                      {BAR, 0.144f, TOP, RIGHT, TOP},
+                      {ARC, MID, 1.15f, 205, 360},
+                      {BAR, RIGHT, 1.5f, RIGHT, 1.2f},
+                      {ARC, MID, LOWER, 0, 155}};
+constexpr Seg G6[] = {{ARC, MID, 1.20f, 180, 360},
+                      {ARC, MID, LOWER, 0, 180},
+                      {BAR, LEFT, LOW2, LEFT, LOWER},
+                      {BAR, RIGHT, 1.2f, RIGHT, LOWER},
+                      {BAR, LEFT, UPPER, LEFT, LOW2},
+                      {ARC, MID, UPPER, 180, 335}};
+constexpr Seg G7[] = {{BAR, LEFT, TOP, RIGHT, TOP},
+                      {BAR, RIGHT, TOP, 0.28f, BOTTOM}};
+constexpr Seg G8[] = {{ARC, MID, UPPER, 180, 360},
+                      {ARC, MID, UP2, 0, 180},
+                      {BAR, LEFT, UPPER, LEFT, UP2},
+                      {BAR, RIGHT, UPPER, RIGHT, UP2},
+                      {ARC, MID, LOW2, 180, 360},
+                      {ARC, MID, LOWER, 0, 180},
+                      {BAR, LEFT, LOW2, LEFT, LOWER},
+                      {BAR, RIGHT, LOW2, RIGHT, LOWER}};
+constexpr Seg G9[] = {{ARC, MID, UPPER, 180, 360},
+                      {ARC, MID, 0.8f, 0, 180},
+                      {BAR, LEFT, 0.5f, LEFT, 0.8f},
+                      {BAR, RIGHT, UPPER, RIGHT, UP2},
+                      {BAR, RIGHT, UP2, RIGHT, LOWER},
+                      {ARC, MID, LOWER, 0, 155}};
+constexpr Glyph GLYPHS[10] = {{G0, 4}, {G1, 2}, {G2, 5}, {G3, 7}, {G4, 3}, {G5, 5}, {G6, 6}, {G7, 2}, {G8, 8}, {G9, 6}};
+}  // namespace bold
+
+// What differs between the styles: the digits' shape and the gaps (in units of a digit's width: between the digits of a
+// pair, around the colon, between the two rows of the stacked layout).
+struct StyleDef {
+  const Glyph *glyphs;
+  float h, t, in, colon, rows;
+};
+constexpr StyleDef STYLES[3] = {
+    {glass::GLYPHS, glass::H, glass::T, 0.15f, 0.45f, 0.30f},  // glass (the default)
+    {bold::GLYPHS, bold::H, bold::T, 0.09f, 0.56f, 0.30f},     // style 2
+    {glass::GLYPHS, glass::H, glass::T, 0.15f, 0.45f, 0.30f},  // style 3: placeholder, like glass
+};
+
+// What one digit slot holds: where it stands and which digit it shows.
+struct Digit {
+  char shown = 0;    // '0' to '9', ' ' for none, 0 before the first time
+  int x = 0, y = 0;  // top left, in the glass's pixels
+};
+
+// The pictures of the digits (A8, one byte a pixel: how much of the ink shows), one per digit slot. They are kept in
 // PSRAM for as long as the firmware runs and reused by the next saver, so nothing that LVGL still holds is ever freed.
 constexpr int SLOTS = 4;
 constexpr int PAD = 2;  // pixels around a digit's box, for the soft edge
@@ -203,13 +225,9 @@ class GlassSaver : public tessera::Saver {
     use_mask_ = overlay_on && std::strcmp(layer, "cut") == 0 && mask_data().data != nullptr && mask_data().w > 0 && mask_data().h > 0;
     glass_w_ = c.width;
     glass_h_ = c.height;
-    // How many layers an arc is drawn from: 5 (body, both edges, the caps of free ends), 3 (no caps) or 1 (body only).
-    // Every layer is an LVGL object of its own, so fewer layers leave the screen more memory.
-    // `mode`: "raster" draws each digit as one soft picture (a few objects, glass with a continuous bright edge), "strokes"
-    // builds it from arcs and bars (the first way, many objects).
-    const bool want_raster = std::strcmp(c.options["mode"] | "raster", "strokes") != 0;
-    const char *detail = c.options["detail"] | "light";
-    layers_ = std::strcmp(detail, "full") == 0 ? 5 : (std::strcmp(detail, "minimal") == 0 ? 1 : 3);
+    // The look of the digits: "glass" (the default), "style2" or "style3".
+    const char *digit_style = c.options["digit_style"] | "glass";
+    style_ = std::strcmp(digit_style, "style2") == 0 ? STYLE_2 : (std::strcmp(digit_style, "style3") == 0 ? STYLE_3 : STYLE_GLASS);
     // The glass gets a little fainter at night, when the level is low and a face may go darker still.
     body_opa_ = c.night ? (lv_opa_t) 50 : (lv_opa_t) 77;
     rim_opa_ = c.night ? (lv_opa_t) 127 : (lv_opa_t) 179;
@@ -240,25 +258,24 @@ class GlassSaver : public tessera::Saver {
     lv_obj_set_size(shade_, c.width, c.height);
     lv_obj_set_pos(shade_, 0, 0);
 
-    // The layout: four digits in a row, or two rows of two. The smooth mode has its own, much taller shape (the table
-    // in `tall`); the strokes keep the first. `arrange` fixes the metrics, the size and the places of the digits; with
-    // `auto` the arrangement that makes the digits larger wins.
-    constexpr float IN = 0.15f, COLON = 0.45f, ROWS = 0.30f;
+    // The layout: four digits in a row, or two rows of two. `arrange` fixes the metrics, the size and the places of the
+    // digits; with `auto` the arrangement that makes the digits larger wins.
+    const StyleDef &sd = STYLES[style_];
+    stroke_ = sd.t;
+    glyph_h_ = sd.h;
+    radius_ = (1.0f - sd.t) / 2;
+    glyphs_ = sd.glyphs;
+    const float IN = sd.in, COLON = sd.colon, ROWS = sd.rows;
     const int date_h = date ? ui::line_height(Font::TITLE) : 0;
     const int date_gap = date ? ui::px(10) : 0;
     bool stacked = false;
     int top = 0;
-    auto arrange = [&](bool smooth) {
-      stroke_ = smooth ? tall::T : STROKE;
-      glyph_h_ = smooth ? tall::H : GLYPH_H;
-      radius_ = (1.0f - stroke_) / 2;
-      glyphs_ = smooth ? tall::GLYPHS : GLYPHS;
+    auto arrange = [&]() {
       const float room = (float) (c.height - date_h - date_gap);
       const float side = std::min(c.width * 0.92f / (4 + 2 * IN + COLON), room * 0.62f / glyph_h_);
       const float stack = std::min(c.width * 0.84f / (2 + IN), room * 0.86f / (2 * glyph_h_ + ROWS));
       stacked = std::strcmp(layout, "stacked") == 0 || (std::strcmp(layout, "side") != 0 && stack > side);
       unit_ = stacked ? stack : side;
-      thick_ = std::max(3, (int) std::lround(stroke_ * unit_));
       rim_ = std::max(1, (int) std::lround(0.022f * unit_));
       const int digits_h = (int) std::lround((stacked ? 2 * glyph_h_ + ROWS : glyph_h_) * unit_);
       const int block_h = date_h + date_gap + digits_h;
@@ -285,9 +302,10 @@ class GlassSaver : public tessera::Saver {
         for (Digit &d : digits_) d.y = top;
       }
     };
-    arrange(want_raster);
-    raster_ = want_raster && reserve_rasters();
-    if (want_raster && !raster_) arrange(false);  // no room for the pictures: the strokes, with their own shape
+    arrange();
+    // The pictures live in PSRAM. Without room for them there are no digits (the date and the background still show).
+    raster_ = reserve_rasters();
+    if (!raster_) ESP_LOGW(TAG, "no room for the digit pictures (PSRAM), the clock stays empty");
 
     if (date) {
       date_ = ui::label(c.parent, Font::TITLE, theme::INK_SOFT);
@@ -298,31 +316,10 @@ class GlassSaver : public tessera::Saver {
     // The colon: two glass dots between the pairs, at a third and two thirds of the digits' height.
     const int dot = std::max(4, (int) std::lround(0.16f * unit_));
     const int cx = c.width / 2;  // the colon: exactly the middle of the screen
-    if (!stacked && !raster_) {
-      // Strokes mode: the dots are objects of their own.
-      for (int i = 0; i < 2; ++i) {
-        dots_[i] = glass_block(c.parent);
-        lv_obj_set_size(dots_[i], dot, dot);
-        lv_obj_set_pos(dots_[i], cx - dot / 2,
-                       top + (int) std::lround((i == 0 ? 0.34f : 0.66f) * glyph_h_ * unit_) - dot / 2);
-      }
-    }
     if (raster_) {
       create_images(c.parent);
-      // Smooth mode: the colon is a picture like the digits, cut out by the overlay's silhouette pixel by pixel.
+      // The colon is a picture like the digits, cut out by the overlay's silhouette pixel by pixel.
       if (!stacked) create_colon(c.parent, cx, dot);
-    } else {
-      for (Digit &d : digits_) make_digit(c.parent, d);
-    }
-    // Strokes mode: a colon dot whose centre lies on the overlay's silhouette stays hidden (an object cannot be cut out).
-    for (int i = 0; i < 2; ++i) {
-      if (!dots_[i] || !use_mask_) continue;
-      const float mx = lv_obj_get_x(dots_[i]) + lv_obj_get_width(dots_[i]) / 2.0f;
-      const float my = lv_obj_get_y(dots_[i]) + lv_obj_get_height(dots_[i]) / 2.0f;
-      if (mask_at(mx, my) > 0.5f) {
-        dot_masked_[i] = true;
-        lv_obj_add_flag(dots_[i], LV_OBJ_FLAG_HIDDEN);
-      }
     }
 
     if (overlay_front) make_overlay();
@@ -371,53 +368,10 @@ class GlassSaver : public tessera::Saver {
   }
 
  private:
-  // A piece of glass: a clear body with a bright border, in the ink's colour, with a pill's corners.
-  lv_obj_t *glass_block(lv_obj_t *parent) {
-    lv_obj_t *b = ui::block(parent, theme::INK);
-    lv_obj_set_style_radius(b, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_opa(b, body_opa_, 0);
-    lv_obj_set_style_border_width(b, rim_, 0);
-    lv_obj_set_style_border_color(b, ui::color(theme::INK), 0);
-    lv_obj_set_style_border_opa(b, rim_opa_, 0);
-    return b;
-  }
-
-  // One layer of an arc: an LVGL arc with nothing but its background arc visible (no knob, no indicator, no touch).
-  lv_obj_t *arc_layer(lv_obj_t *parent, lv_opa_t opa) {
-    lv_obj_t *a = lv_arc_create(parent);
-    lv_obj_remove_flag(a, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_remove_flag(a, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_opa(a, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(a, 0, 0);
-    lv_obj_set_style_outline_width(a, 0, 0);
-    lv_obj_set_style_shadow_width(a, 0, 0);
-    lv_obj_set_style_pad_all(a, 0, 0);
-    lv_obj_set_style_arc_opa(a, LV_OPA_TRANSP, LV_PART_INDICATOR);
-    lv_obj_set_style_bg_opa(a, LV_OPA_TRANSP, LV_PART_KNOB);
-    lv_obj_set_style_arc_color(a, ui::color(theme::INK), LV_PART_MAIN);
-    lv_obj_set_style_arc_opa(a, opa, LV_PART_MAIN);
-    lv_arc_set_rotation(a, 0);
-    lv_obj_add_flag(a, LV_OBJ_FLAG_HIDDEN);
-    return a;
-  }
-
-  // Every part of a digit slot, made once and hidden until a digit needs it.
-  void make_digit(lv_obj_t *parent, Digit &d) {
-    for (auto &arc : d.arcs) {
-      arc[0] = arc_layer(parent, body_opa_);
-      for (int i = 1; i < layers_; ++i) arc[i] = arc_layer(parent, rim_opa_);
-    }
-    for (lv_obj_t *&bar : d.bars) {
-      bar = glass_block(parent);
-      lv_obj_add_flag(bar, LV_OBJ_FLAG_HIDDEN);
-    }
-  }
-
-  // ---- The smooth mode ----
+  // ---- The digits ----
 
   void put(int slot, char ch) {
     if (raster_) raster_digit(slot, ch);
-    else paint_digit(digits_[slot], ch);
   }
 
   // Room for the pictures of the digit slots, in PSRAM. False when it is not there.
@@ -463,7 +417,7 @@ class GlassSaver : public tessera::Saver {
     }
   }
 
-  // The colon of the smooth mode: one narrow A8 picture with the two dots, drawn once. Same glass look as the digits
+  // The colon: one narrow A8 picture with the two dots, drawn once. Same glass look as the digits
   // (clear body, a little brighter at the top, bright edge) and cut out by the overlay's silhouette like them, so it
   // lies on the same level as the time.
   void create_colon(lv_obj_t *parent, int cx, int dot) {
@@ -528,6 +482,33 @@ class GlassSaver : public tessera::Saver {
     uint8_t *px = pool.pixels[slot];
     std::memset(px, 0, (size_t) w * h);
     if (ch >= '0' && ch <= '9') {
+      switch (style_) {
+        case STYLE_3: draw_style3(slot, px, w, h, ch); break;
+        default: draw_glass(slot, px, w, h, ch); break;
+      }
+    }
+    lv_image_set_src(images_[slot], &dsc);  // the same picture again: LVGL draws what is in it now
+    lv_obj_invalidate(images_[slot]);
+  }
+
+  // ---- The digit styles ----
+  //
+  // Each style fills the A8 picture `px` (w x h, one byte a pixel, already cleared) of the digit `ch` ('0' to '9') in slot
+  // `slot`. The digit's box starts PAD pixels inside the picture and is unit_ wide and glyph_h_ * unit_ tall. To let the
+  // overlay cut the digit out, multiply each pixel's alpha with (1 - cut_at(slot, x, y)) as draw_glass does.
+
+  // The silhouette of the overlay at a pixel of a digit picture: 0 (nothing cut out) to 1 (cut out). 0 without a mask.
+  float cut_at(int slot, int x, int y) const {
+    if (!use_mask_) return 0.0f;
+    return mask_at(digits_[slot].x - PAD + x + 0.5f, digits_[slot].y - PAD + y + 0.5f);
+  }
+
+  // Style 3: PLATZHALTER, bis der Code kommt. Zeichnet vorerst wie der Standard. (Form und Abstände: STYLES[2].)
+  void draw_style3(int slot, uint8_t *px, int w, int h, char ch) { draw_glass(slot, px, w, h, ch); }
+
+  // The frosted glass digits of styles 1 and 2: the shape (glyphs_, stroke_, glyph_h_) comes from the style.
+  void draw_glass(int slot, uint8_t *px, int w, int h, char ch) {
+    {
       struct Prim {
         bool arc, full;
         float a, b, c, d;       // a bar: both ends; an arc: its centre, then (c) the start and (d) the sweep in degrees
@@ -614,121 +595,14 @@ class GlassSaver : public tessera::Saver {
         }
       }
     }
-    lv_image_set_src(images_[slot], &dsc);  // the same picture again: LVGL draws what is in it now
-    lv_obj_invalidate(images_[slot]);
   }
 
-  // Show a digit in its slot: place the strokes it needs, hide the rest. Nothing happens when it already shows it.
-  void paint_digit(Digit &d, char ch) {
-    if (d.shown == ch) return;
-    d.shown = ch;
-    int arcs = 0, bars = 0;
-    if (ch >= '0' && ch <= '9') {
-      const Glyph &g = GLYPHS[ch - '0'];
-      for (int i = 0; i < g.count; ++i) {
-        const Seg &s = g.segs[i];
-        if (s.kind == ARC && arcs < ARC_SLOTS) place_arc(d.arcs[arcs++], d, s);
-        else if (s.kind == BAR && bars < BAR_SLOTS) place_bar(d.bars[bars++], d, s);
-      }
-    }
-    for (int i = arcs; i < ARC_SLOTS; ++i)
-      for (lv_obj_t *layer : d.arcs[i])
-        if (layer) lv_obj_add_flag(layer, LV_OBJ_FLAG_HIDDEN);
-    for (int i = bars; i < BAR_SLOTS; ++i) lv_obj_add_flag(d.bars[i], LV_OBJ_FLAG_HIDDEN);
-  }
-
-  // An arc: the body as wide as the stroke, a thin bright arc along each edge of it, and the caps of its free ends.
-  // LVGL draws an arc inward from the edge of its object, so a layer's object is as large as the outer edge of what it
-  // draws. A free end is closed by a half circle of the stroke's width: with both ends free the body's own round caps
-  // are the fill and the two caps only draw the border; with one end free the body has flat ends, and the cap is a
-  // filled half circle (an arc as wide as its radius) and its border.
-  void place_arc(lv_obj_t *const layers[ARC_LAYERS], const Digit &d, const Seg &s) {
-    const int cx = d.x + (int) std::lround(s.a * unit_), cy = d.y + (int) std::lround(s.b * unit_);
-    const int r = (int) std::lround(RADIUS * unit_);
-    const int outer = r + thick_ / 2, inner = r - thick_ / 2;
-    const bool full = s.d - s.c >= 359;
-    // LVGL reads the angles from 0 to 359; a whole circle is 0 to 359 with flat ends, and the 1 degree is not seen.
-    const int start = full ? 0 : (int) s.c % 360, end = full ? 359 : (int) s.d % 360;
-    const bool open_start = !full && (s.open & OPEN_START), open_end = !full && (s.open & OPEN_END);
-    struct Layer {
-      int x, y, radius, width, from, to;  // the centre, the radius of the object, the width, the angles
-      lv_opa_t opa;
-      bool rounded, shown;
-    };
-    Layer look[ARC_LAYERS] = {};
-    look[0] = {cx, cy, outer, thick_, start, end, body_opa_, layers_ < 5 ? (open_start || open_end) : (open_start && open_end), true};
-    look[1] = {cx, cy, outer, rim_, start, end, rim_opa_, false, true};
-    look[2] = {cx, cy, inner + rim_, rim_, start, end, rim_opa_, false, true};
-    // The caps: a half circle around the end's centre line point, on the side the stroke runs out to.
-    const int cap = thick_ / 2;
-    auto cap_at = [&](int angle, bool at_start, int slot, bool fill) {
-      const float rad = angle * 3.14159265f / 180.0f;
-      const int px = cx + (int) std::lround(r * std::cos(rad)), py = cy + (int) std::lround(r * std::sin(rad));
-      const int from = at_start ? (angle + 180) % 360 : angle % 360, to = at_start ? angle % 360 : (angle + 180) % 360;
-      look[slot] = {px, py, cap, fill ? cap : rim_, from, to, fill ? body_opa_ : rim_opa_, false, true};
-    };
-    if (layers_ < 5) {
-      // no caps: the body's own round ends close a free end, without a border of their own
-    } else if (open_start && open_end) {
-      cap_at(start, true, 3, false);
-      cap_at(end, false, 4, false);
-    } else if (open_start) {
-      cap_at(start, true, 3, true);
-      cap_at(start, true, 4, false);
-    } else if (open_end) {
-      cap_at(end, false, 3, true);
-      cap_at(end, false, 4, false);
-    }
-    for (int i = 0; i < layers_; ++i) {
-      lv_obj_t *a = layers[i];
-      const Layer &l = look[i];
-      if (!l.shown) {
-        lv_obj_add_flag(a, LV_OBJ_FLAG_HIDDEN);
-        continue;
-      }
-      lv_obj_set_size(a, 2 * l.radius, 2 * l.radius);
-      lv_obj_set_pos(a, l.x - l.radius, l.y - l.radius);
-      lv_arc_set_bg_angles(a, l.from, l.to);
-      lv_obj_set_style_arc_width(a, l.width, LV_PART_MAIN);
-      lv_obj_set_style_arc_opa(a, l.opa, LV_PART_MAIN);
-      lv_obj_set_style_arc_rounded(a, l.rounded, LV_PART_MAIN);
-      lv_obj_remove_flag(a, LV_OBJ_FLAG_HIDDEN);
-    }
-  }
-
-  // A bar: a pill along its centre line, or with flat ends and a border on its two long sides where it joins others.
-  void place_bar(lv_obj_t *bar, const Digit &d, const Seg &s) {
-    const bool vertical = std::fabs(s.a - s.c) < 0.001f;
-    const bool joined = s.open == CLOSED;
-    const int cap = joined ? 0 : thick_ / 2;
-    int x0 = d.x + (int) std::lround(std::min(s.a, s.c) * unit_);
-    int x1 = d.x + (int) std::lround(std::max(s.a, s.c) * unit_);
-    int y0 = d.y + (int) std::lround(std::min(s.b, s.d) * unit_);
-    int y1 = d.y + (int) std::lround(std::max(s.b, s.d) * unit_);
-    if (vertical) {
-      x0 -= thick_ / 2;
-      x1 = x0 + thick_;
-      y0 -= cap;
-      y1 += cap;
-    } else {
-      y0 -= thick_ / 2;
-      y1 = y0 + thick_;
-      x0 -= cap;
-      x1 += cap;
-    }
-    lv_obj_set_pos(bar, x0, y0);
-    lv_obj_set_size(bar, x1 - x0, y1 - y0);
-    lv_obj_set_style_radius(bar, joined ? 0 : LV_RADIUS_CIRCLE, 0);
-    const lv_border_side_t sides = !joined ? LV_BORDER_SIDE_FULL
-                                   : vertical ? (lv_border_side_t) (LV_BORDER_SIDE_LEFT | LV_BORDER_SIDE_RIGHT)
-                                              : (lv_border_side_t) (LV_BORDER_SIDE_TOP | LV_BORDER_SIDE_BOTTOM);
-    lv_obj_set_style_border_side(bar, sides, 0);
-    lv_obj_remove_flag(bar, LV_OBJ_FLAG_HIDDEN);
-  }
-
-  int thick_ = 3, rim_ = 1, layers_ = 3;
-  float unit_ = 50, stroke_ = STROKE, glyph_h_ = GLYPH_H, radius_ = RADIUS;
-  const Glyph *glyphs_ = GLYPHS;
+  enum Style : uint8_t { STYLE_GLASS, STYLE_2, STYLE_3 };
+  Style style_ = STYLE_GLASS;
+  int rim_ = 1;
+  float unit_ = 50;
+  float stroke_ = glass::T, glyph_h_ = glass::H, radius_ = glass::R;  // set from the style in show()
+  const Glyph *glyphs_ = glass::GLYPHS;
   bool raster_ = false;
   lv_opa_t body_opa_ = LV_OPA_30, rim_opa_ = LV_OPA_70;
   uint32_t minute_ = 0;
@@ -750,10 +624,10 @@ class GlassSaver : public tessera::Saver {
            (at(x0, y0 + 1) * (1 - fx) + at(x0 + 1, y0 + 1) * fx) * fy;
   }
 
-  bool use_mask_ = false, dot_masked_[2] = {false, false};
+  bool use_mask_ = false;
   int glass_w_ = 0, glass_h_ = 0;
   std::string overlay_url_;
-  lv_obj_t *overlay_{}, *place_{}, *shade_{}, *date_{}, *dots_[2]{}, *colon_{}, *images_[SLOTS]{};
+  lv_obj_t *overlay_{}, *place_{}, *shade_{}, *date_{}, *colon_{}, *images_[SLOTS]{};
 };
 
 void GlassClock::set_mask(const uint8_t *data, int width, int height) {
