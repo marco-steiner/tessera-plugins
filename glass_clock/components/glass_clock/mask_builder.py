@@ -11,6 +11,21 @@ MAX_BYTES = 10 * 1024 * 1024
 TIMEOUT = 20
 
 
+DEFAULT_NAME = "glass_clock_overlay.png"
+
+
+def find_default(search_dirs):
+    """The path of the overlay PNG in its fixed place, or None: a file called glass_clock_overlay.png in each of
+    search_dirs in turn (the screen's config folder, then this component's folder)."""
+    import os
+
+    for folder in search_dirs:
+        path = os.path.join(folder, DEFAULT_NAME)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
 def read_source(source, search_dirs):
     """Return the bytes of the overlay picture. `source` is a web address or a file name; a file is looked for in each
     of search_dirs in turn (the screen's config folder, then this component's folder)."""
