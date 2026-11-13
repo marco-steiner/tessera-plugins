@@ -19,11 +19,10 @@ boards: any
 flash_kb: 64
 
 # The overlay picture is fetched from the person's own Home Assistant domain (its www folder, served under /local/).
-# REPLACE the placeholder host with your domain (host name only: no address, no port, nothing on the home network), or
-# the overlay is blocked. Replace the privacy link with a page that says what the host sees (the README's Privacy
-# section is fine).
+# Replace the host with your domain (no address, no port, nothing on the home network), and the privacy link with a page
+# that says what the host sees (the README's Privacy section is fine).
 permissions:
-  network: [your-domain.example]
+  network: [smarthomebude.eu]
 attributes: [cloud]
 privacy: https://github.com/marco-steiner/tessera-plugins/tree/main/glass_clock#privacy
 

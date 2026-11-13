@@ -29,8 +29,7 @@ The option **Digit style** picks one of three looks for the digits: **Glass** (t
 
 The option Overlay address takes the web address of a PNG that lies over the clock (for example a file in Home Assistant's
 `www` folder, which is served as `https://<your domain>/local/<file>.png`). Its transparency is kept; Overlay opacity
-makes it fainter. The host of that address must be written in `permissions.network` of `tessera-plugin.yaml`
-(replace the placeholder `your-domain.example` with your own domain, the host name only), or the overlay is blocked.
+makes it fainter. The host must be written in `permissions.network` of `tessera-plugin.yaml`.
 
 ## Privacy
 
@@ -58,17 +57,11 @@ the clock hid it, and why its opacity only faded those copies over the clock, ne
 So the overlay lies under the clock, and the plugin cuts the digits out where the PNG is opaque. The cut-out (a
 silhouette of the PNG) is made **automatically while the firmware is built**:
 
-1. Put your overlay PNG into the screen's config folder (beside the screen's YAML file) and call it
-   `glass_clock_overlay.png`. The build finds it by itself. (A copy in `components/glass_clock/` works too.)
-   Put **the same picture** into Home Assistant's `www` folder and enter its address under the app option
-   **Overlay address**: the screen shows that one, the silhouette is made from the one in step 1, so the two must match.
-2. Build the screen again. The build log says `glass_clock: mask 240x240 (56 KB) from ... % opaque`. It names the file
-   it used, so you can see whether it was the new one. Without the file the log says that nothing is cut out.
+1. In `plugin.yaml` set `overlay_image` to your overlay PNG: a web address (for example
+   `https://<your domain>/local/overlay.png`) or a file name (in the screen's config folder or in
+   `components/glass_clock/`). Use the same picture as the app option **Overlay address**.
+2. Build the screen again. The build log says `glass_clock: mask 240x240 (56 KB) from ... % opaque`.
 3. Set **Overlay position** to *Clock cut out by the overlay* (the default).
-
-Another name or place: in `plugin.yaml` set `overlay_image` to a file name (looked for in the screen's config folder, then
-in `components/glass_clock/`), a full path, or a web address the build can reach (for example
-`https://<your domain>/local/overlay.png`).
 
 Optional keys next to `overlay_image`: `glass_width` / `glass_height` (default 480 x 480, the Guition 4; the picture is
 fitted to this size like on the screen: filling it, centred), `mask_width` (default 240; the flash it takes is

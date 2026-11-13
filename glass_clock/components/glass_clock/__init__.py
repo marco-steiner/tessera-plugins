@@ -1,8 +1,7 @@
 """Glass clock: the ESPHome side. smart_display.register_plugin() reads the id, the version, whether its screensaver
 moves itself and the screen's texts from the manifest and translations/ beside this folder (docs/FIRMWARE_API.md).
 
-The one thing this file does besides that: if `overlay_image` is set (or a file glass_clock_overlay.png lies in the
-screen's config folder), it makes the overlay's silhouette (the mask the
+The one thing this file does besides that: if `overlay_image` is set, it makes the overlay's silhouette (the mask the
 digits are cut out with) from that PNG while the firmware is built, and compiles it in. Nothing to generate by hand."""
 import logging
 import os
@@ -35,8 +34,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.GenerateID(): cv.declare_id(GlassClock),
         cv.GenerateID(CONF_MASK_ID): cv.declare_id(cg.uint8),
         # The overlay PNG: a web address (https://<your domain>/local/overlay.png) or a file name (looked for in the
-        # screen's config folder, then in this component's folder). Without it the plugin looks for a file called
-        # glass_clock_overlay.png in those two folders; without that there is no silhouette.
+        # screen's config folder, then in this component's folder). Without it there is no silhouette.
         cv.Optional(CONF_OVERLAY_IMAGE): cv.string,
         # The glass the picture is fitted to (filling it, centred), in pixels: 480 x 480 for the Guition 4.
         cv.Optional(CONF_GLASS_WIDTH, default=480): cv.int_range(min=100, max=2000),
@@ -54,18 +52,15 @@ async def to_code(config):
     await cg.register_component(var, config)
     await smart_display.register_plugin(var, __file__)
 
-    search_dirs = [str(CORE.config_dir), os.path.dirname(os.path.abspath(__file__))]
-    source = config.get(CONF_OVERLAY_IMAGE) or mask_builder.find_default(search_dirs)
+    source = config.get(CONF_OVERLAY_IMAGE)
     if not source:
-        _LOGGER.info(
-            "glass_clock: no overlay_image and no %s in %s, the clock is not cut out by an overlay",
-            mask_builder.DEFAULT_NAME,
-            " or ".join(search_dirs),
-        )
+        _LOGGER.info("glass_clock: no overlay_image, the clock is not cut out by an overlay")
         return
 
     try:
-        data = mask_builder.read_source(source, search_dirs)
+        data = mask_builder.read_source(
+            source, [str(CORE.config_dir), os.path.dirname(os.path.abspath(__file__))]
+        )
         width, height, raw, (opaque, has_alpha) = mask_builder.build_mask(
             data,
             config[CONF_GLASS_WIDTH],

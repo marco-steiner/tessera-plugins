@@ -1,9 +1,6 @@
 # Changelog
 
 ## 0.5.0
-- The mask is found by itself: without `overlay_image` the build looks for `glass_clock_overlay.png` in the screen's
-  config folder (then in `components/glass_clock/`). The default `plugin.yaml` no longer names a domain, and the manifest
-  has a placeholder host (`your-domain.example`) that everyone replaces with their own.
 - The Strokes drawing is gone, with its options Drawing and Detail, the arcs-and-bars objects and the first digit shape.
   Only the smooth drawing remains (each digit one A8 picture). Without PSRAM the digits are no longer drawn by strokes: the
   clock stays empty, the date and the background still show.
